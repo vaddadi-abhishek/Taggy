@@ -5,8 +5,24 @@ import Constants from 'expo-constants';
 
 // Access environment variables from Constants.expoConfig.extra
 const { AUTHORIZATION_ENDPOINT, TOKEN_ENDPOINT, REDDIT_CLIENT_ID } = Constants.expoConfig?.extra || {};
-
+  
 console.log([AUTHORIZATION_ENDPOINT, TOKEN_ENDPOINT, REDDIT_CLIENT_ID])
+
+
+const printAsyncStorage = async () => {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const items = await AsyncStorage.multiGet(keys);
+
+    items.forEach(([key, value]) => {
+      console.log(`${key}: ${value}`);
+    });
+  } catch (error) {
+    console.error('Error printing AsyncStorage data:', error);
+  }
+};
+
+printAsyncStorage();
 
 const REDIRECT_URI = AuthSession.makeRedirectUri({
   native: "taggy://redirect", // Ensure this matches your actual app scheme

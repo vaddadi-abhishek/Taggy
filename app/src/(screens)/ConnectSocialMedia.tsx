@@ -1,6 +1,14 @@
 import { FontAwesome6 } from "@expo/vector-icons";
-import React, { useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { handleSocialConnect } from "utils/socialAuthDispatcher";
 
 const socialPlatforms = [
@@ -19,8 +27,26 @@ const platformIcons: Record<string, JSX.Element> = {
 
 export default function ConnectSocialMedia() {
   const [connected, setConnected] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(true);
 
-  const toggleConnect = async (item: typeof socialPlatforms[0]) => {
+  useEffect(() => {
+    const checkTokenStatus = async () => {
+      const initialConnectedState: Record<string, boolean> = {};
+
+      // Check each platform for existing tokens
+      for (const platform of socialPlatforms) {
+        const token = await AsyncStorage.getItem(`${platform.key}_token`);
+        initialConnectedState[platform.id] = !!token;
+      }
+
+      setConnected(initialConnectedState);
+      setLoading(false);
+    };
+
+    checkTokenStatus();
+  }, []);
+
+  const toggleConnect = async (item: (typeof socialPlatforms)[0]) => {
     const isConnected = connected[item.id];
 
     if (!isConnected) {
@@ -35,9 +61,7 @@ export default function ConnectSocialMedia() {
         "Are you sure?",
         `If you disconnect ${item.name}, all your imported bookmarks and tags will be lost.`,
         [
-          { text: "Cancel",
-            style: "cancel"
-           },
+          { text: "Cancel", style: "cancel" },
           {
             text: "Yes",
             style: "destructive",
@@ -45,6 +69,7 @@ export default function ConnectSocialMedia() {
               // Disconnect logic
               const result = await handleSocialConnect(item.key, false);
               if (result) {
+                await AsyncStorage.removeItem(`${item.key}_token`);
                 setConnected((prev) => ({ ...prev, [item.id]: false }));
               }
             },
@@ -54,7 +79,7 @@ export default function ConnectSocialMedia() {
     }
   };
 
-  const renderItem = ({ item }: { item: typeof socialPlatforms[0] }) => {
+  const renderItem = ({ item }: { item: (typeof socialPlatforms)[0] }) => {
     const isConnected = connected[item.id];
 
     return (
@@ -64,11 +89,17 @@ export default function ConnectSocialMedia() {
           <Text style={styles.platform}>{item.name}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.button, isConnected ? styles.connected : styles.connect]}
+          style={[
+            styles.button,
+            isConnected ? styles.connected : styles.connect,
+          ]}
           onPress={() => toggleConnect(item)}
+          disabled={loading}
         >
-          <Text style={[styles.buttonText, isConnected && styles.connectedText]}>
-            {isConnected ? "Disconnect" : "Connect"}
+          <Text
+            style={[styles.buttonText, isConnected && styles.connectedText]}
+          >
+            {loading ? "Checking..." : isConnected ? "Disconnect" : "Connect"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -87,6 +118,8 @@ export default function ConnectSocialMedia() {
     </View>
   );
 }
+
+// ... (keep the same styles as before)
 
 const styles = StyleSheet.create({
   container: {
