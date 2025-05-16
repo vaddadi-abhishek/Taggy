@@ -71,7 +71,7 @@ export default function HomeScreen() {
           image:
             post.thumbnail?.startsWith("http") && !post.thumbnail.includes("default")
               ? post.thumbnail
-              : "https://shorturl.at/YDZz6", // fallback image
+              : "https://tinyurl.com/4k5fhafn", // fallback image
           source: "reddit",
           title: post.title || "Untitled",
           caption: post.selftext?.substring(0, 100) || "No description.",
