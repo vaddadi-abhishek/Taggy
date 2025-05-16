@@ -15,7 +15,7 @@ export default function HomeScreen() {
   const loadSavedPosts = async () => {
     try {
       const accessToken = await AsyncStorage.getItem("reddit_token");
-      console.log(accessToken)
+      console.log(accessToken);
       if (!accessToken) {
         setError("Reddit access token not found");
         setBookmarks([]); // 🔄 Clear bookmarks on logout
@@ -66,18 +66,41 @@ export default function HomeScreen() {
 
       const parsed = posts.map((item: any, index: number) => {
         const post = item.data;
-        return {
-          id: post.id || index,
-          image:
-            post.thumbnail?.startsWith("http") && !post.thumbnail.includes("default")
-              ? post.thumbnail
-              : "https://tinyurl.com/4k5fhafn", // fallback image
-          source: "reddit",
-          title: post.title || "Untitled",
-          caption: post.selftext?.substring(0, 100) || "No description.",
-          aiSummary: "Summary will be generated here",
-          tags: ["reddit", post.subreddit],
-        };
+
+        if (post.title) {
+          // It's a post
+          return {
+            id: post.id || index,
+            image: post.thumbnail?.startsWith("http") ? post.thumbnail : "https://tinyurl.com/4k5fhafn",
+            source: "reddit",
+            title: post.title || "Untitled",
+            caption: post.selftext?.substring(0, 100) || "No description.",
+            aiSummary: "Summary will be generated here",
+            tags: ["reddit", post.subreddit],
+          };
+        } else if (post.body) {
+          // It's a comment
+          return {
+            id: post.id || index,
+            image: "https://tinyurl.com/2f5uh482", // comments have no thumbnail
+            source: "reddit",
+            title: `Comment on r/${post.subreddit}`,
+            caption: post.body.substring(0, 100),
+            aiSummary: "Summary will be generated here",
+            tags: ["reddit", post.subreddit],
+          };
+        } else {
+          // Fallback for unknown types
+          return {
+            id: post.id || index,
+            image: "",
+            source: "reddit",
+            title: "Unknown saved item",
+            caption: "No description available.",
+            aiSummary: "Summary will be generated here",
+            tags: ["reddit"],
+          };
+        }
       });
 
       setBookmarks(parsed);
