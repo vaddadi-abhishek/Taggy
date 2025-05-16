@@ -26,8 +26,10 @@ printAsyncStorage();
 
 const REDIRECT_URI = AuthSession.makeRedirectUri({
   native: "taggy://redirect", // Ensure this matches your actual app scheme
-  useProxy: true, // Ensures it works in Expo Go
+  useProxy: false, // Ensures it works in Expo Go
 });
+
+console.log("REDIRECT URI:", REDIRECT_URI)
 
 const discovery = {
   authorizationEndpoint: AUTHORIZATION_ENDPOINT,
@@ -55,7 +57,7 @@ export const redditAuth = async (shouldConnect: boolean): Promise<boolean> => {
 
     try {
       await request.makeAuthUrlAsync(discovery); // 🔧 required before promptAsync
-      const result = await request.promptAsync(discovery, { useProxy: true });
+      const result = await request.promptAsync(discovery, { useProxy: false });
 
       if (result.type === "success" && result.params.code) {
         const code = result.params.code;
