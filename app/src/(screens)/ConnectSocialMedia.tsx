@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import eventBus from "utils/eventBus";
 import { handleSocialConnect } from "utils/socialAuthDispatcher";
 
 const socialPlatforms = [
@@ -54,6 +55,9 @@ export default function ConnectSocialMedia() {
       const result = await handleSocialConnect(item.key, true);
       if (result) {
         setConnected((prev) => ({ ...prev, [item.id]: true }));
+
+        // 🔥 Emit event after connecting
+        eventBus.emit("refreshFeed");
       }
     } else {
       // Show alert before disconnecting
@@ -66,11 +70,13 @@ export default function ConnectSocialMedia() {
             text: "Yes",
             style: "destructive",
             onPress: async () => {
-              // Disconnect logic
               const result = await handleSocialConnect(item.key, false);
               if (result) {
                 await AsyncStorage.removeItem(`${item.key}_token`);
                 setConnected((prev) => ({ ...prev, [item.id]: false }));
+
+                // 🔥 Emit event after disconnecting
+                eventBus.emit("refreshFeed");
               }
             },
           },

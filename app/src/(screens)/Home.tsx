@@ -2,11 +2,19 @@ import BookmarkCard from "@/app/src/components/BookMarkCard";
 import TopHeader from "@/app/src/components/TopHeader";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import eventBus from "utils/eventBus";
 
 export default function HomeScreen() {
   const [bookmarks, setBookmarks] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleSearch = (text: string) => {
     console.log("Searching:", text);
@@ -15,16 +23,13 @@ export default function HomeScreen() {
   const loadSavedPosts = async () => {
     try {
       const accessToken = await AsyncStorage.getItem("reddit_token");
-      console.log(accessToken);
       if (!accessToken) {
         setError("Reddit access token not found");
-        setBookmarks([]); // 🔄 Clear bookmarks on logout
+        setBookmarks([]);
         return;
       }
 
-      setBookmarks([]); // 🧹 Clear previous bookmarks before loading new ones
-
-      // Step 1: Get logged-in username
+      setBookmarks([]);
       const userResponse = await fetch("https://oauth.reddit.com/api/v1/me", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -41,9 +46,7 @@ export default function HomeScreen() {
 
       const userData = await userResponse.json();
       const username = userData.name;
-      console.log("Logged-in Reddit username:", username);
 
-      // Step 2: Get saved posts
       const savedResponse = await fetch(
         `https://oauth.reddit.com/user/${username}/saved`,
         {
@@ -68,10 +71,11 @@ export default function HomeScreen() {
         const post = item.data;
 
         if (post.title) {
-          // It's a post
           return {
             id: post.id || index,
-            image: post.thumbnail?.startsWith("http") ? post.thumbnail : "https://tinyurl.com/4k5fhafn",
+            image: post.thumbnail?.startsWith("http")
+              ? post.thumbnail
+              : "https://tinyurl.com/4k5fhafn",
             source: "reddit",
             title: post.title || "Untitled",
             caption: post.selftext?.substring(0, 100) || "No description.",
@@ -79,10 +83,9 @@ export default function HomeScreen() {
             tags: ["reddit", post.subreddit],
           };
         } else if (post.body) {
-          // It's a comment
           return {
             id: post.id || index,
-            image: "https://tinyurl.com/2f5uh482", // comments have no thumbnail
+            image: "https://tinyurl.com/2f5uh482",
             source: "reddit",
             title: `Comment on r/${post.subreddit}`,
             caption: post.body.substring(0, 100),
@@ -90,7 +93,6 @@ export default function HomeScreen() {
             tags: ["reddit", post.subreddit],
           };
         } else {
-          // Fallback for unknown types
           return {
             id: post.id || index,
             image: "",
@@ -104,21 +106,44 @@ export default function HomeScreen() {
       });
 
       setBookmarks(parsed);
-      setError(null); // ✅ Clear old error on success
+      setError(null);
     } catch (err) {
       console.error("Fetch error:", err);
       setError("Could not fetch Reddit data.");
     }
   };
 
+  // 🔁 Refresh logic
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadSavedPosts();
+    setRefreshing(false);
+  };
+
   useEffect(() => {
     loadSavedPosts();
+
+    // 🔔 Listen for platform connect/disconnect
+    const refreshListener = () => {
+      console.log("🔁 Refreshing posts due to platform change...");
+      loadSavedPosts();
+    };
+    
+    eventBus.on("refreshFeed", refreshListener);
+
+    return () => {
+      eventBus.off("refreshFeed", refreshListener);
+    };
   }, []);
 
   return (
     <View style={styles.container}>
       <TopHeader onSearchTextChange={handleSearch} />
-      <ScrollView>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={{ paddingBottom: 80 }}>
           {error && <Text style={styles.error}>{error}</Text>}
           {bookmarks.map((bookmark) => (
