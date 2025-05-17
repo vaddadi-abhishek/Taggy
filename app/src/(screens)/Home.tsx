@@ -80,7 +80,15 @@ export default function HomeScreen() {
       const parsed = posts.map((item: any, index: number) => {
         const post = item.data;
 
-        const isVideo = post.is_video && post.media?.reddit_video?.fallback_url;
+        const isVideo =
+          post.is_video &&
+          (post.media?.reddit_video?.dash_url ||
+            post.media?.reddit_video?.hls_url);
+
+        const videoUrl =
+          post.media?.reddit_video?.dash_url ||
+          post.media?.reddit_video?.hls_url ||
+          null;
 
         if (post.title) {
           return {
@@ -89,7 +97,7 @@ export default function HomeScreen() {
               !isVideo && post.thumbnail?.startsWith("http")
                 ? post.thumbnail
                 : undefined,
-            video: isVideo ? post.media.reddit_video.fallback_url : null,
+            video: isVideo ? videoUrl : null,
             source: "reddit",
             title: post.title || "Untitled",
             caption: post.selftext?.substring(0, 100) || "No description.",

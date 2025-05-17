@@ -82,6 +82,9 @@ export default function BookmarkCard({
             style={styles.media}
             allowsFullscreen
             allowsPictureInPicture
+            isMuted={false} // enable sound
+            volume={1.0} // max volume
+            shouldPlay={true} // auto play video with sound
           />
           <View style={styles.iconOverlay}>{platformIcons[source]}</View>
         </View>
