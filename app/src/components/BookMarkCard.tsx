@@ -1,10 +1,12 @@
-import FloatingTagModal from "@/app/src/components/FloatingTagModal"; // Import FloatingTagModal
+import FloatingTagModal from "@/app/src/components/FloatingTagModal";
 import { FontAwesome6 } from "@expo/vector-icons";
+import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useEffect, useRef, useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 type Props = {
-  image: string;
+  image?: string;
+  video?: string;
   source: "instagram" | "reddit" | "x" | "youtube";
   title: string;
   caption: string;
@@ -19,12 +21,24 @@ const platformIcons: Record<string, JSX.Element> = {
   youtube: <FontAwesome6 name="youtube" size={18} color="#FF0000" />,
 };
 
-export default function BookmarkCard({ image, source, title, caption, tags, aiSummary }: Props) {
+export default function BookmarkCard({
+  image,
+  video,
+  source,
+  title,
+  caption,
+  tags,
+  aiSummary,
+}: Props) {
   const [showSummary, setShowSummary] = useState(false);
   const [typedSummary, setTypedSummary] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
-  const aiTagBadgeRef = useRef<View>(null); // Reference to the AI Tag badge
+  const aiTagBadgeRef = useRef<View>(null);
+
+  const player = useVideoPlayer(video || "", (p) => {
+    p.loop = true;
+  });
 
   useEffect(() => {
     let index = 0;
@@ -34,12 +48,12 @@ export default function BookmarkCard({ image, source, title, caption, tags, aiSu
       setTypedSummary("");
       timer = setInterval(() => {
         if (index < aiSummary.length) {
-          setTypedSummary(prev => prev + aiSummary.charAt(index));
+          setTypedSummary((prev) => prev + aiSummary.charAt(index));
           index++;
         } else {
           clearInterval(timer);
         }
-      }, 15); // Adjust speed here
+      }, 15);
     } else {
       setTypedSummary("");
     }
@@ -48,30 +62,53 @@ export default function BookmarkCard({ image, source, title, caption, tags, aiSu
   }, [showSummary]);
 
   const handleAiTagPress = () => {
-    // Get the position of the AI tag badge to position the modal correctly
     aiTagBadgeRef.current?.measureInWindow((x, y, width, height) => {
-      setModalPosition({ x: x + width / 2, y: y });
+      setModalPosition({ x: x + width / 2, y });
     });
-    setShowModal(true); // Show the modal when AI Tag badge is clicked
+    setShowModal(true);
   };
 
   const handleTagModalSubmit = (newTag: string) => {
     console.log("New tag added:", newTag);
-    // You can handle tag submission here, like updating the state or sending the data to the backend
+    // Backend call or state update
+  };
+
+  const renderMedia = () => {
+    if (video && player) {
+      return (
+        <View style={{ width: "100%", aspectRatio: 16 / 9 }}>
+          <VideoView
+            player={player}
+            style={styles.media}
+            allowsFullscreen
+            allowsPictureInPicture
+          />
+          <View style={styles.iconOverlay}>{platformIcons[source]}</View>
+        </View>
+      );
+    } else if (image) {
+      return (
+        <View>
+          <Image source={{ uri: image }} style={styles.media} />
+          <View style={styles.iconOverlay}>{platformIcons[source]}</View>
+        </View>
+      );
+    }
+    // No media (no video, no image) - render nothing
+    return null;
   };
 
   return (
     <View style={styles.card}>
-      <View>
-        <Image source={{ uri: image }} style={styles.image} />
-        <View style={styles.iconOverlay}>{platformIcons[source]}</View>
-      </View>
-
+      {renderMedia()}
       <View style={styles.textContent}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.caption}>{caption}</Text>
 
-        <TouchableOpacity style={styles.aiBadge} onPress={() => setShowSummary(!showSummary)}>
+        <TouchableOpacity
+          style={styles.aiBadge}
+          onPress={() => setShowSummary(!showSummary)}
+        >
           <Text style={styles.aiBadgeText}>AI Summarize</Text>
         </TouchableOpacity>
 
@@ -86,21 +123,20 @@ export default function BookmarkCard({ image, source, title, caption, tags, aiSu
             </View>
           ))}
           <TouchableOpacity
-            ref={aiTagBadgeRef} // Set the reference to the AI Tag badge
+            ref={aiTagBadgeRef}
             style={styles.aiTagBadge}
-            onPress={handleAiTagPress} // Open modal when AI Tag badge is clicked
+            onPress={handleAiTagPress}
           >
             <Text style={styles.tagText}>Add Tag</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Floating Tag Modal */}
       <FloatingTagModal
         visible={showModal}
         onClose={() => setShowModal(false)}
         onSubmit={handleTagModalSubmit}
-        position={modalPosition} // Pass the calculated position
+        position={modalPosition}
       />
     </View>
   );
@@ -117,7 +153,7 @@ const styles = StyleSheet.create({
     margin: 12,
     overflow: "hidden",
   },
-  image: {
+  media: {
     width: "100%",
     height: 200,
   },
@@ -187,4 +223,3 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 });
-

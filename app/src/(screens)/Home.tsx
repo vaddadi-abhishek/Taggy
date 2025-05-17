@@ -55,7 +55,9 @@ export default function HomeScreen() {
         setAfter(null);
       }
 
-      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${afterParam ? `&after=${afterParam}` : ""}`;
+      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${
+        afterParam ? `&after=${afterParam}` : ""
+      }`;
 
       const savedResponse = await fetch(url, {
         headers: {
@@ -78,12 +80,16 @@ export default function HomeScreen() {
       const parsed = posts.map((item: any, index: number) => {
         const post = item.data;
 
+        const isVideo = post.is_video && post.media?.reddit_video?.fallback_url;
+
         if (post.title) {
           return {
             id: post.id || index,
-            image: post.thumbnail?.startsWith("http")
-              ? post.thumbnail
-              : "https://tinyurl.com/4k5fhafn",
+            image:
+              !isVideo && post.thumbnail?.startsWith("http")
+                ? post.thumbnail
+                : undefined,
+            video: isVideo ? post.media.reddit_video.fallback_url : null,
             source: "reddit",
             title: post.title || "Untitled",
             caption: post.selftext?.substring(0, 100) || "No description.",
@@ -93,7 +99,8 @@ export default function HomeScreen() {
         } else if (post.body) {
           return {
             id: post.id || index,
-            image: "https://tinyurl.com/2f5uh482",
+            image: "",
+            video: null,
             source: "reddit",
             title: `Comment on r/${post.subreddit}`,
             caption: post.body.substring(0, 100),
@@ -104,6 +111,7 @@ export default function HomeScreen() {
           return {
             id: post.id || index,
             image: "",
+            video: null,
             source: "reddit",
             title: "Unknown saved item",
             caption: "No description available.",
@@ -157,7 +165,9 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <TopHeader onSearchTextChange={(text) => console.log("Searching:", text)} />
+      <TopHeader
+        onSearchTextChange={(text) => console.log("Searching:", text)}
+      />
       {error && <Text style={styles.error}>{error}</Text>}
 
       <FlatList
@@ -166,6 +176,7 @@ export default function HomeScreen() {
         renderItem={({ item }) => (
           <BookmarkCard
             image={item.image}
+            video={item.video} // Add this line
             source={item.source}
             title={item.title}
             caption={item.caption}
@@ -175,9 +186,13 @@ export default function HomeScreen() {
         )}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5} // Load more when scrolled 50% near bottom
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         ListFooterComponent={
-          loadingMore ? <ActivityIndicator size="small" color="#6200ee" /> : null
+          loadingMore ? (
+            <ActivityIndicator size="small" color="#6200ee" />
+          ) : null
         }
         contentContainerStyle={{ paddingBottom: 80 }}
       />
