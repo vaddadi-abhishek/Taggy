@@ -1,4 +1,4 @@
-export const XAuth = async (shouldConnect: boolean): Promise<boolean> => {
+const XAuth = async (shouldConnect: boolean): Promise<boolean> => {
   if (shouldConnect) {
     console.log("🔗 X connecting...");
     // perform auth logic here...
@@ -9,3 +9,5 @@ export const XAuth = async (shouldConnect: boolean): Promise<boolean> => {
     return true; // disconnected
   }
 };
+
+export default XAuth;

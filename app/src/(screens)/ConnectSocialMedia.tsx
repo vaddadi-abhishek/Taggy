@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import eventBus from "utils/eventBus";
-import { handleSocialConnect } from "utils/socialAuthDispatcher";
+import handleSocialConnect from "utils/socialAuthDispatcher";
 
 const socialPlatforms = [
   { id: "1", name: "Reddit", key: "reddit" },

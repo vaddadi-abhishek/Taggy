@@ -1,4 +1,4 @@
-export const InstagramAuth = async (shouldConnect: boolean): Promise<boolean> => {
+const InstagramAuth = async (shouldConnect: boolean): Promise<boolean> => {
   if (shouldConnect) {
     console.log("🔗 Instagram connecting...");
     // perform auth logic here...
@@ -9,3 +9,5 @@ export const InstagramAuth = async (shouldConnect: boolean): Promise<boolean> =>
     return true; // disconnected
   }
 };
+
+export default InstagramAuth;

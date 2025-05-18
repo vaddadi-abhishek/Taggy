@@ -1,4 +1,4 @@
-export const YoutubeAuth = async (shouldConnect: boolean): Promise<boolean> => {
+const YoutubeAuth = async (shouldConnect: boolean): Promise<boolean> => {
   if (shouldConnect) {
     console.log("🔗 Youtube connecting...");
     // perform auth logic here...
@@ -9,3 +9,5 @@ export const YoutubeAuth = async (shouldConnect: boolean): Promise<boolean> => {
     return true; // disconnected
   }
 };
+
+export default YoutubeAuth;

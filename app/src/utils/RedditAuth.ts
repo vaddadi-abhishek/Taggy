@@ -36,7 +36,7 @@ const discovery = {
   tokenEndpoint: TOKEN_ENDPOINT,
 };
 
-export const redditAuth = async (shouldConnect: boolean): Promise<boolean> => {
+const redditAuth = async (shouldConnect: boolean): Promise<boolean> => {
   if (shouldConnect) {
     console.log("🔗 Reddit connecting...");
 
@@ -102,3 +102,5 @@ export const redditAuth = async (shouldConnect: boolean): Promise<boolean> => {
     return true;
   }
 };
+
+export default redditAuth;

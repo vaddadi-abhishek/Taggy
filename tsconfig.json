@@ -6,7 +6,7 @@
       "@/*": [
         "./*"
       ],
-      "utils/*": ["utils/*"]
+      "utils/*": ["app/src/utils/*"]
     }
   },
   "include": [

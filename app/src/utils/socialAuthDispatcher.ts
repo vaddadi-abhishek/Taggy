@@ -1,9 +1,9 @@
-import { InstagramAuth } from "utils/InstagramAuth";
-import { redditAuth } from "utils/RedditAuth";
-import { XAuth } from "utils/XAuth";
-import { YoutubeAuth } from "utils/YoutubeAuth";
+import InstagramAuth from "utils/InstagramAuth";
+import redditAuth from "utils/RedditAuth";
+import XAuth from "utils/XAuth";
+import YoutubeAuth from "utils/YoutubeAuth";
 
-export const handleSocialConnect = async (
+const handleSocialConnect = async (
   platform: string,
   shouldConnect: boolean // <-- Add this argument
 ): Promise<boolean> => {
@@ -21,3 +21,5 @@ export const handleSocialConnect = async (
       return false;
   }
 };
+
+export default handleSocialConnect;
