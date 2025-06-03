@@ -11,6 +11,8 @@ import {
   View,
 } from "react-native";
 import eventBus from "utils/eventBus";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 export default function HomeScreen() {
   const [bookmarks, setBookmarks] = useState<any[]>([]);
@@ -55,9 +57,8 @@ export default function HomeScreen() {
         setAfter(null);
       }
 
-      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${
-        afterParam ? `&after=${afterParam}` : ""
-      }`;
+      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${afterParam ? `&after=${afterParam}` : ""
+        }`;
 
       const savedResponse = await fetch(url, {
         headers: {
@@ -173,9 +174,9 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <TopHeader
-        onSearchTextChange={(text) => console.log("Searching:", text)}
-      />
+      <SafeAreaView>
+        <TopHeader onSearchTextChange={(text) => console.log("Searching:", text)} />
+      </SafeAreaView>
       {error && <Text style={styles.error}>{error}</Text>}
 
       <FlatList

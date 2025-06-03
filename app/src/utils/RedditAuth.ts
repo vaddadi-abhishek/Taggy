@@ -13,7 +13,7 @@ const printAsyncStorage = async () => {
   try {
     const keys = await AsyncStorage.getAllKeys();
     const items = await AsyncStorage.multiGet(keys);
-
+    console.log('Async Storage:')
     items.forEach(([key, value]) => {
       console.log(`${key}: ${value}`);
     });
@@ -25,7 +25,7 @@ const printAsyncStorage = async () => {
 printAsyncStorage();
 
 const REDIRECT_URI = AuthSession.makeRedirectUri({
-  native: "taggy://redirect", // Ensure this matches your actual app scheme
+  native: "", // Ensure this matches your actual app scheme
   useProxy: false, // Ensures it works in Expo Go
 });
 
