@@ -23,6 +23,7 @@ export default function HomeHeader({ onSearchTextChange }: Props) {
     const backAction = () => {
       if (searching) {
         setSearching(false);
+        onSearchTextChange?.(""); // <-- Clear search text on back
         return true;
       }
       return false;
@@ -34,17 +35,20 @@ export default function HomeHeader({ onSearchTextChange }: Props) {
     );
     return () => backHandler.remove();
   }, [searching]);
-  
+
   useEffect(() => {
     if (searching && searchInputRef.current) {
-      // Delay focus to ensure the input is fully mounted
       const timeout = setTimeout(() => {
         searchInputRef.current?.focus();
-      }, 100); // 100ms works well in most cases
-
+      }, 100);
       return () => clearTimeout(timeout);
     }
   }, [searching]);
+
+  const handleClose = () => {
+    setSearching(false);
+    onSearchTextChange?.(""); // <-- Clear search text on close
+  };
 
   return (
     <View style={styles.topBar}>
@@ -67,7 +71,7 @@ export default function HomeHeader({ onSearchTextChange }: Props) {
             placeholderTextColor="#888"
             onChangeText={onSearchTextChange}
           />
-          <TouchableOpacity onPress={() => setSearching(false)}>
+          <TouchableOpacity onPress={handleClose}>
             <Ionicons name="close" size={24} color="black" />
           </TouchableOpacity>
         </>

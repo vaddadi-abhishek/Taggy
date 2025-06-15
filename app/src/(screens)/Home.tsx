@@ -1,7 +1,7 @@
 import BookmarkCard from "@/app/src/components/BookMarkCard";
 import TopHeader from "@/app/src/components/TopHeader";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -10,19 +10,20 @@ import {
   Text,
   View,
 } from "react-native";
-import eventBus from "utils/eventBus";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import eventBus from "utils/eventBus";
+import debounce from "lodash.debounce";
 
 export default function HomeScreen() {
   const [bookmarks, setBookmarks] = useState<any[]>([]);
+  const [filteredBookmarks, setFilteredBookmarks] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [after, setAfter] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState("");
 
-  // Fetch username once, store it
   const fetchUsername = async (token: string) => {
     const userResponse = await fetch("https://oauth.reddit.com/api/v1/me", {
       headers: {
@@ -35,13 +36,13 @@ export default function HomeScreen() {
     return userData.name;
   };
 
-  // Fetch saved posts, pass after for pagination, append if after exists
   const loadSavedPosts = async (afterParam: string | null = null) => {
     try {
       const accessToken = await AsyncStorage.getItem("reddit_token");
       if (!accessToken) {
         setError("Reddit access token not found");
         setBookmarks([]);
+        setFilteredBookmarks([]);
         return;
       }
 
@@ -52,7 +53,6 @@ export default function HomeScreen() {
       }
 
       if (!afterParam) {
-        // First page: reset bookmarks and after
         setBookmarks([]);
         setAfter(null);
       }
@@ -131,9 +131,14 @@ export default function HomeScreen() {
       });
 
       if (afterParam) {
-        setBookmarks((prev) => [...prev, ...parsed]); // Append next page
+        setBookmarks((prev) => {
+          const updated = [...prev, ...parsed];
+          handleSearchDebounced(searchText, updated);
+          return updated;
+        });
       } else {
-        setBookmarks(parsed); // First page
+        setBookmarks(parsed);
+        handleSearchDebounced(searchText, parsed);
       }
 
       setAfter(newAfter);
@@ -150,7 +155,6 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  // Called when list end is reached
   const onEndReached = async () => {
     if (after && !loadingMore && !refreshing) {
       setLoadingMore(true);
@@ -159,33 +163,64 @@ export default function HomeScreen() {
     }
   };
 
+  const handleSearch = (text: string, data: any[] = bookmarks) => {
+    setSearchText(text);
+    if (!text.trim()) {
+      setFilteredBookmarks(data);
+      return;
+    }
+
+    const lowerText = text.toLowerCase();
+    const filtered = data.filter((item) =>
+      `${item.title} ${item.caption} ${item.tags?.join(" ")}`.toLowerCase().includes(lowerText)
+    );
+    setFilteredBookmarks(filtered);
+  };
+
+  const handleSearchDebounced = useCallback(
+    debounce((text: string, data?: any[]) => {
+      handleSearch(text, data || bookmarks);
+    }, 300),
+    [bookmarks]
+  );
+
   useEffect(() => {
     onRefresh();
-
     const refreshListener = () => {
       loadSavedPosts(null);
     };
-
     eventBus.on("refreshFeed", refreshListener);
     return () => {
       eventBus.off("refreshFeed", refreshListener);
     };
   }, []);
 
+  useEffect(() => {
+  if (searchText.trim() === "") {
+    setFilteredBookmarks(bookmarks);
+  }
+}, [searchText, bookmarks]);
+
+
   return (
     <View style={styles.container}>
       <SafeAreaView>
-        <TopHeader onSearchTextChange={(text) => console.log("Searching:", text)} />
+        <TopHeader
+          onSearchTextChange={(text) => {
+            setSearchText(text);
+            handleSearchDebounced(text);
+          }}
+        />
       </SafeAreaView>
       {error && <Text style={styles.error}>{error}</Text>}
 
       <FlatList
-        data={bookmarks}
+        data={filteredBookmarks}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <BookmarkCard
             image={item.image}
-            video={item.video} // Add this line
+            video={item.video}
             source={item.source}
             title={item.title}
             caption={item.caption}
@@ -194,9 +229,14 @@ export default function HomeScreen() {
           />
         )}
         onEndReached={onEndReached}
-        onEndReachedThreshold={0.5} // Load more when scrolled 50% near bottom
+        onEndReachedThreshold={0.5}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={
+          !refreshing && searchText.trim().length > 0 ? (
+            <Text style={styles.noResults}>No Results</Text>
+          ) : null
         }
         ListFooterComponent={
           loadingMore ? (
@@ -212,4 +252,11 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   error: { color: "red", textAlign: "center", marginVertical: 10 },
+  noResults: {
+    textAlign: "center",
+    marginTop: 20,
+    color: "#888",
+    fontSize: 16,
+    fontWeight: "300", // Thin font
+  },
 });
