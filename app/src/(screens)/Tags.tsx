@@ -1,8 +1,9 @@
-import FloatingTagModal from "@/app/src/components/FloatingTagModal";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  Dimensions,
+  Animated,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,80 +12,161 @@ import {
   View,
 } from "react-native";
 
-const initialTags = ["AI", "React", "Tech", "Science"];
+const TAG_STORAGE_KEY = "user_tags";
+
+// Normalize a tag string to camelCase for comparison
+const normalizeTag = (str: string) => str.replace(/\s+/g, '').toLowerCase();
 
 export default function TagsScreen() {
-  const [tags, setTags] = useState(initialTags);
+  const [tags, setTags] = useState<string[]>([]);
   const [searchText, setSearchText] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
-  const addButtonRef = useRef<TouchableOpacity>(null);
-  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
+  const [editedTagName, setEditedTagName] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  const triggerShake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 6, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const loadTags = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(TAG_STORAGE_KEY);
+      if (stored) setTags(JSON.parse(stored));
+    } catch (e) {
+      console.error("Failed to load tags", e);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadTags();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    loadTags();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem(TAG_STORAGE_KEY, JSON.stringify(tags)).catch((e) =>
+      console.error("Failed to save tags", e)
+    );
+  }, [tags]);
 
   const handleDelete = (tag: string) => {
     setTags(tags.filter((t) => t !== tag));
-  };
-
-  const handleEdit = (tag: string) => {
-    console.log("Edit tag:", tag);
+    if (editingTagIndex !== null && tags[editingTagIndex] === tag) {
+      setEditingTagIndex(null);
+      setEditedTagName("");
+    }
   };
 
   const handleAddPress = () => {
-    // Try to position near the Add button
-    if (addButtonRef.current) {
-      addButtonRef.current.measureInWindow((x, y, width, height) => {
-        setModalPosition({
-          x: x + width / 2, // Center of the button
-          y: y + height, // Bottom of the button
-        });
-        setShowModal(true);
-      });
-    } else {
-      // Fallback to center position
-      setModalPosition({
-        x: screenWidth / 2,
-        y: screenHeight / 2,
-      });
-      setShowModal(true);
+    const newTag = searchText.trim();
+    const newTagNormalized = normalizeTag(newTag);
+
+    if (newTag.length < 3) {
+      triggerShake();
+      return;
     }
+
+    const tagExists = tags.some(
+      (t) => normalizeTag(t) === newTagNormalized
+    );
+
+    if (tagExists) {
+      triggerShake();
+      return;
+    }
+
+    setTags((prev) => [newTag, ...prev]);
+    setSearchText("");
+  };
+
+  const handleEdit = (index: number) => {
+    setEditingTagIndex(index);
+    setEditedTagName(tags[index]);
+  };
+
+  const handleSaveEdit = (index: number) => {
+    const newName = editedTagName.trim();
+    const newNameNormalized = normalizeTag(newName);
+
+    if (newName.length < 3) {
+      triggerShake();
+      return;
+    }
+
+    const tagExists = tags.some(
+      (t, i) => i !== index && normalizeTag(t) === newNameNormalized
+    );
+
+    if (tagExists) {
+      triggerShake();
+      return;
+    }
+
+    const updated = [...tags];
+    updated[index] = newName;
+    setTags(updated);
+    setEditingTagIndex(null);
+    setEditedTagName("");
   };
 
   return (
     <View style={styles.container}>
-      {/* Search + Add */}
-      <View style={styles.searchRow}>
+      <Animated.View style={[styles.searchRow, { transform: [{ translateX: shakeAnim }] }]}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search tags..."
+          placeholder="Add or Search Tags"
           value={searchText}
           onChangeText={setSearchText}
         />
-        <TouchableOpacity
-          ref={addButtonRef}
-          style={styles.addButton}
-          onPress={handleAddPress}
-        >
+        <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
           <Ionicons name="add-circle-outline" size={22} color="#fff" />
           <Text style={styles.addText}>Add Tag</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
-      {/* Tag Count */}
       <Text style={styles.subheading}>Your Tags ({tags.length})</Text>
 
-      {/* Tag List */}
-      <ScrollView>
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+      >
         {tags
           .filter((tag) => tag.toLowerCase().includes(searchText.toLowerCase()))
           .map((tag, index) => (
-            <View key={index} style={styles.tagRow}>
-              <View style={styles.tagBadge}>
-                <Text style={styles.tagText}>{tag}</Text>
+            <View key={tag} style={styles.tagRow}>
+              <View style={{ flex: 1 }}>
+                {editingTagIndex === index ? (
+                  <TextInput
+                    value={editedTagName}
+                    onChangeText={setEditedTagName}
+                    style={styles.editInput}
+                    autoFocus
+                    placeholder="Edit tag name"
+                  />
+                ) : (
+                  <Text style={styles.tagText}>{tag}</Text>
+                )}
               </View>
               <View style={styles.actions}>
-                <TouchableOpacity onPress={() => handleEdit(tag)}>
-                  <Ionicons name="create-outline" size={20} color="#888" />
-                </TouchableOpacity>
+                {editingTagIndex === index ? (
+                  <TouchableOpacity onPress={() => handleSaveEdit(index)}>
+                    <Ionicons name="checkmark-done" size={20} color="#4ade80" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => handleEdit(index)}>
+                    <Ionicons name="create-outline" size={20} color="#888" />
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity onPress={() => handleDelete(tag)}>
                   <Ionicons name="trash-outline" size={20} color="#ff5252" />
                 </TouchableOpacity>
@@ -92,29 +174,12 @@ export default function TagsScreen() {
             </View>
           ))}
       </ScrollView>
-
-      {/* Floating Modal */}
-      <FloatingTagModal
-        visible={showModal}
-        onClose={() => setShowModal(false)}
-        onSubmit={(tagName) => {
-          if (tagName.trim()) {
-            setTags((prev) => [...prev, tagName]);
-          }
-          setShowModal(false);
-        }}
-        position={modalPosition}
-      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: "#fff",
-  },
+  container: { flex: 1, padding: 16, backgroundColor: "#fff" },
   searchRow: {
     flexDirection: "row",
     marginBottom: 16,
@@ -155,18 +220,22 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 10,
   },
-  tagBadge: {
-    backgroundColor: "#e0e0e0",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
   tagText: {
     fontSize: 14,
     fontWeight: "500",
   },
+  editInput: {
+    fontSize: 14,
+    fontWeight: "500",
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: "#fff",
+    borderColor: "#ccc",
+    borderWidth: 1,
+  },
   actions: {
     flexDirection: "row",
     gap: 12,
+    marginLeft: 12,
   },
 });

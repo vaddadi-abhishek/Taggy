@@ -1,7 +1,7 @@
 import BookmarkCard from "@/app/src/components/BookMarkCard";
 import TopHeader from "@/app/src/components/TopHeader";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
