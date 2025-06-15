@@ -2,7 +2,14 @@ import FloatingTagModal from "@/app/src/components/FloatingTagModal";
 import { FontAwesome6 } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useEffect, useRef, useState } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from "react-native";
 
 type Props = {
   image?: string;
@@ -35,11 +42,14 @@ export default function BookmarkCard({
   const [showModal, setShowModal] = useState(false);
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
   const aiTagBadgeRef = useRef<View>(null);
+  const { width: screenWidth } = useWindowDimensions();
+  const [mediaHeight, setMediaHeight] = useState(200);
 
   const player = useVideoPlayer(video || "", (p) => {
     p.loop = true;
   });
 
+  // Typing animation for summary
   useEffect(() => {
     let index = 0;
     let timer: NodeJS.Timeout;
@@ -61,6 +71,30 @@ export default function BookmarkCard({
     return () => clearInterval(timer);
   }, [showSummary]);
 
+  // Dynamic media height (image or video)
+  useEffect(() => {
+    const uri = image;
+    if (uri) {
+      Image.getSize(
+        uri,
+        (width, height) => {
+          const MAX_ASPECT_RATIO = 1.0;
+          const MIN_ASPECT_RATIO = 0.4;
+          let aspectRatio = height / width;
+
+          if (aspectRatio > MAX_ASPECT_RATIO) aspectRatio = MAX_ASPECT_RATIO;
+          if (aspectRatio < MIN_ASPECT_RATIO) aspectRatio = MIN_ASPECT_RATIO;
+
+          setMediaHeight(screenWidth * aspectRatio);
+        },
+        (error) => {
+          console.warn("Media size error:", error);
+          setMediaHeight(200); // fallback
+        }
+      );
+    }
+  }, [image, screenWidth]);
+
   const handleAiTagPress = () => {
     aiTagBadgeRef.current?.measureInWindow((x, y, width, height) => {
       setModalPosition({ x: x + width / 2, y });
@@ -70,21 +104,21 @@ export default function BookmarkCard({
 
   const handleTagModalSubmit = (newTag: string) => {
     console.log("New tag added:", newTag);
-    // Backend call or state update
+    // Update state or backend
   };
 
   const renderMedia = () => {
     if (video && player) {
       return (
-        <View style={{ width: "100%", aspectRatio: 16 / 9 }}>
+        <View>
           <VideoView
             player={player}
-            style={styles.media}
+            style={[styles.media, { height: mediaHeight }]}
             allowsFullscreen
             allowsPictureInPicture
-            isMuted={false} // enable sound
-            volume={1.0} // max volume
-            shouldPlay={true} // auto play video with sound
+            isMuted={false}
+            volume={1.0}
+            shouldPlay={true}
           />
           <View style={styles.iconOverlay}>{platformIcons[source]}</View>
         </View>
@@ -92,12 +126,15 @@ export default function BookmarkCard({
     } else if (image) {
       return (
         <View>
-          <Image source={{ uri: image }} style={styles.media} />
+          <Image
+            source={{ uri: image }}
+            style={[styles.media, { height: mediaHeight }]}
+            resizeMode="contain"
+          />
           <View style={styles.iconOverlay}>{platformIcons[source]}</View>
         </View>
       );
     }
-    // No media (no video, no image) - render nothing
     return null;
   };
 
@@ -158,7 +195,8 @@ const styles = StyleSheet.create({
   },
   media: {
     width: "100%",
-    height: 200,
+    backgroundColor: "#f2f2f2",
+    alignSelf: "center",
   },
   iconOverlay: {
     position: "absolute",

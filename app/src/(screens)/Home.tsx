@@ -91,13 +91,13 @@ export default function HomeScreen() {
           post.media?.reddit_video?.hls_url ||
           null;
 
+        const highResImage =
+          post.preview?.images?.[0]?.source?.url?.replaceAll("&amp;", "&");
+
         if (post.title) {
           return {
             id: post.id || index,
-            image:
-              !isVideo && post.thumbnail?.startsWith("http")
-                ? post.thumbnail
-                : undefined,
+            image: !isVideo ? highResImage : undefined,
             video: isVideo ? videoUrl : null,
             source: "reddit",
             title: post.title || "Untitled",
@@ -108,8 +108,8 @@ export default function HomeScreen() {
         } else if (post.body) {
           return {
             id: post.id || index,
-            image: "",
-            video: null,
+            image: !isVideo ? highResImage : undefined,
+            video: isVideo ? videoUrl : null,
             source: "reddit",
             title: `Comment on r/${post.subreddit}`,
             caption: post.body.substring(0, 100),
@@ -119,8 +119,8 @@ export default function HomeScreen() {
         } else {
           return {
             id: post.id || index,
-            image: "",
-            video: null,
+            image: !isVideo ? highResImage : undefined,
+            video: isVideo ? videoUrl : null,
             source: "reddit",
             title: "Unknown saved item",
             caption: "No description available.",

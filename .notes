@@ -1,0 +1,1 @@
+If reddit OAuth fails, makes sure the REDIRECT URL in console log and reddit app is same.
