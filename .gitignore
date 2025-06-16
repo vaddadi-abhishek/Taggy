@@ -41,3 +41,7 @@ app-example
 
 # VS code
 .vscode
+
+# Backend Folders and Files
+backend/venv
+__pycache__
