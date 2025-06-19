@@ -15,14 +15,12 @@ import handleSocialConnect from "utils/socialAuthDispatcher";
 const socialPlatforms = [
   { id: "1", name: "Reddit", key: "reddit" },
   { id: "2", name: "Twitter", key: "twitter" },
-  { id: "3", name: "YouTube", key: "youtube" },
-  { id: "4", name: "Instagram", key: "instagram" },
+  { id: "3", name: "Instagram", key: "instagram" },
 ];
 
 const platformIcons: Record<string, JSX.Element> = {
   reddit: <FontAwesome6 name="reddit" size={22} color="#FF4500" />,
   twitter: <FontAwesome6 name="x-twitter" size={22} color="#000000" />,
-  youtube: <FontAwesome6 name="youtube" size={22} color="#FF0000" />,
   instagram: <FontAwesome6 name="instagram" size={22} color="#E1306C" />,
 };
 
@@ -87,30 +85,39 @@ export default function ConnectSocialMedia() {
 
   const renderItem = ({ item }: { item: (typeof socialPlatforms)[0] }) => {
     const isConnected = connected[item.id];
+    const isReddit = item.key === "reddit";
 
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, !isReddit && styles.disabledCard]}>
         <View style={styles.left}>
           <View style={styles.icon}>{platformIcons[item.key]}</View>
-          <Text style={styles.platform}>{item.name}</Text>
-        </View>
-        <TouchableOpacity
-          style={[
-            styles.button,
-            isConnected ? styles.connected : styles.connect,
-          ]}
-          onPress={() => toggleConnect(item)}
-          disabled={loading}
-        >
-          <Text
-            style={[styles.buttonText, isConnected && styles.connectedText]}
-          >
-            {loading ? "Checking..." : isConnected ? "Disconnect" : "Connect"}
+          <Text style={[styles.platform, !isReddit && styles.disabledText]}>
+            {item.name}
           </Text>
-        </TouchableOpacity>
+        </View>
+
+        {isReddit ? (
+          <TouchableOpacity
+            style={[
+              styles.button,
+              isConnected ? styles.connected : styles.connect,
+            ]}
+            onPress={() => toggleConnect(item)}
+            disabled={loading}
+          >
+            <Text
+              style={[styles.buttonText, isConnected && styles.connectedText]}
+            >
+              {loading ? "Checking..." : isConnected ? "Disconnect" : "Connect"}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.comingSoon}>Coming Soon</Text>
+        )}
       </View>
     );
   };
+
 
   return (
     <View style={styles.container}>
@@ -180,5 +187,17 @@ const styles = StyleSheet.create({
   },
   connectedText: {
     color: "#fff",
+  },
+  disabledCard: {
+    opacity: 0.5,
+  },
+  disabledText: {
+    color: "#aaa",
+  },
+  comingSoon: {
+    fontSize: 12,
+    color: "#999",
+    fontStyle: "italic",
+    fontWeight: "600",
   },
 });

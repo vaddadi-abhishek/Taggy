@@ -40,7 +40,7 @@ export default function HomeScreen() {
     try {
       const accessToken = await AsyncStorage.getItem("reddit_token");
       if (!accessToken) {
-        setError("Reddit access token not found");
+        setError("Please, Connect Your Reddit Account 😄");
         setBookmarks([]);
         setFilteredBookmarks([]);
         return;

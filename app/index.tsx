@@ -1,9 +1,50 @@
 import globalStyles from '@/app/src/styles/globalStyles';
-import { Link } from 'expo-router';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import handleSocialConnect from 'utils/socialAuthDispatcher';
+import eventBus from 'utils/eventBus';
+import { router } from 'expo-router';
 
 export default function index() {
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const checkToken = async () => {
+      const token = await AsyncStorage.getItem('reddit_token');
+      if (token) {
+        router.replace('/src/(screens)/Home'); // 🔁 Replace so user can't go back
+      } else {
+        setIsChecking(false); // Show login UI
+      }
+    };
+    checkToken();
+  }, []);
+
+  const handleRedditLogin = async () => {
+    const result = await handleSocialConnect('reddit', true);
+    if (result) {
+      eventBus.emit('refreshFeed');
+      router.replace('/src/(screens)/Home');
+    }
+  };
+
+  if (isChecking) {
+    // 🌀 Show loading while checking AsyncStorage
+    return (
+      <View style={[globalStyles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#3573D1" />
+      </View>
+    );
+  }
+
   return (
     <View style={globalStyles.container}>
       <View style={styles.viewText}>
@@ -15,15 +56,15 @@ export default function index() {
       </View>
 
       <View style={styles.btnWrapper}>
-        <Link href="./src/(screens)/Home" asChild>
-          <TouchableOpacity style={styles.btnStyles}>
-            <Image
-              source={{ uri: 'https://img.icons8.com/3d-fluency/375/google-logo.png' }}
-              style={styles.btnImg}
-            />
-            <Text style={styles.btnText}>Login with Google</Text>
-          </TouchableOpacity>
-        </Link>
+        <TouchableOpacity style={styles.btnStyles} onPress={handleRedditLogin}>
+          <Image
+            source={{
+              uri: 'https://img.icons8.com/3d-fluency/375/reddit.png',
+            }}
+            style={styles.btnImg}
+          />
+          <Text style={styles.btnText}>Login with Reddit</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -64,5 +105,9 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '300',
+  },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
