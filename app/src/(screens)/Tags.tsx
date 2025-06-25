@@ -1,7 +1,8 @@
+// src/screens/Tags.tsx
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   RefreshControl,
   ScrollView,
@@ -12,10 +13,12 @@ import {
   View,
 } from "react-native";
 
-const TAG_STORAGE_KEY = "user_tags";
-
-// Normalize a tag string to camelCase for comparison
-const normalizeTag = (str: string) => str.replace(/\s+/g, '').toLowerCase();
+import {
+  getAllTags,
+  addGlobalTag,
+  deleteGlobalTag,
+  updateGlobalTag,
+} from "@/app/src/utils/tagStorage";
 
 export default function TagsScreen() {
   const [tags, setTags] = useState<string[]>([]);
@@ -36,12 +39,8 @@ export default function TagsScreen() {
   };
 
   const loadTags = async () => {
-    try {
-      const stored = await AsyncStorage.getItem(TAG_STORAGE_KEY);
-      if (stored) setTags(JSON.parse(stored));
-    } catch (e) {
-      console.error("Failed to load tags", e);
-    }
+    const loaded = await getAllTags();
+    setTags(loaded);
   };
 
   const handleRefresh = async () => {
@@ -54,40 +53,37 @@ export default function TagsScreen() {
     loadTags();
   }, []);
 
-  useEffect(() => {
-    AsyncStorage.setItem(TAG_STORAGE_KEY, JSON.stringify(tags)).catch((e) =>
-      console.error("Failed to save tags", e)
-    );
-  }, [tags]);
-
-  const handleDelete = (tag: string) => {
-    setTags(tags.filter((t) => t !== tag));
-    if (editingTagIndex !== null && tags[editingTagIndex] === tag) {
-      setEditingTagIndex(null);
-      setEditedTagName("");
-    }
-  };
-
-  const handleAddPress = () => {
+  const handleAddPress = async () => {
     const newTag = searchText.trim();
-    const newTagNormalized = normalizeTag(newTag);
+    if (newTag.length < 3) return triggerShake();
 
-    if (newTag.length < 3) {
-      triggerShake();
-      return;
-    }
-
-    const tagExists = tags.some(
-      (t) => normalizeTag(t) === newTagNormalized
-    );
-
-    if (tagExists) {
-      triggerShake();
-      return;
-    }
+    const success = await addGlobalTag(newTag);
+    if (!success) return triggerShake();
 
     setTags((prev) => [newTag, ...prev]);
     setSearchText("");
+  };
+
+  const handleDelete = (tag: string) => {
+    Alert.alert(
+      "Delete Tag",
+      `Are you sure you want to delete "${tag}"? This will remove it from all bookmarks.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await deleteGlobalTag(tag);
+            setTags((prev) => prev.filter((t) => t !== tag));
+            if (editingTagIndex !== null && tags[editingTagIndex] === tag) {
+              setEditingTagIndex(null);
+              setEditedTagName("");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleEdit = (index: number) => {
@@ -95,23 +91,13 @@ export default function TagsScreen() {
     setEditedTagName(tags[index]);
   };
 
-  const handleSaveEdit = (index: number) => {
+  const handleSaveEdit = async (index: number) => {
     const newName = editedTagName.trim();
-    const newNameNormalized = normalizeTag(newName);
+    if (newName.length < 3) return triggerShake();
 
-    if (newName.length < 3) {
-      triggerShake();
-      return;
-    }
-
-    const tagExists = tags.some(
-      (t, i) => i !== index && normalizeTag(t) === newNameNormalized
-    );
-
-    if (tagExists) {
-      triggerShake();
-      return;
-    }
+    const oldName = tags[index];
+    const success = await updateGlobalTag(oldName, newName);
+    if (!success) return triggerShake();
 
     const updated = [...tags];
     updated[index] = newName;
@@ -177,6 +163,7 @@ export default function TagsScreen() {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: "#fff" },

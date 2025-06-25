@@ -13,6 +13,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import eventBus from "utils/eventBus";
 import debounce from "lodash.debounce";
+import { getTagsForBookmark } from "utils/tagStorage";
+import { refreshAccessToken } from "utils/RedditAuth";
 
 export default function HomeScreen() {
   const [bookmarks, setBookmarks] = useState<any[]>([]);
@@ -38,12 +40,18 @@ export default function HomeScreen() {
 
   const loadSavedPosts = async (afterParam: string | null = null) => {
     try {
-      const accessToken = await AsyncStorage.getItem("reddit_token");
+      let accessToken = await AsyncStorage.getItem("reddit_token");
+
       if (!accessToken) {
-        setError("Please, Connect Your Reddit Account 😄");
-        setBookmarks([]);
-        setFilteredBookmarks([]);
-        return;
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          accessToken = await AsyncStorage.getItem("reddit_token");
+        } else {
+          setError("Please, Connect Your Reddit Account 😄");
+          setBookmarks([]);
+          setFilteredBookmarks([]);
+          return;
+        }
       }
 
       let currentUsername = username;
@@ -80,19 +88,22 @@ export default function HomeScreen() {
 
       const parsed = posts.map((item: any, index: number) => {
         const post = item.data;
-
         const isVideo =
           post.is_video &&
-          (post.media?.reddit_video?.dash_url ||
-            post.media?.reddit_video?.hls_url);
+          (post.media?.reddit_video?.dash_url || post.media?.reddit_video?.hls_url);
 
         const videoUrl =
-          post.media?.reddit_video?.dash_url ||
+          post.media?.reddit_video?.fallback_url ||
           post.media?.reddit_video?.hls_url ||
+          post.media?.reddit_video?.dash_url ||
           null;
 
         const highResImage =
           post.preview?.images?.[0]?.source?.url?.replaceAll("&amp;", "&");
+
+        const permalink = post.permalink
+          ? `https://www.reddit.com${post.permalink}`
+          : null;
 
         if (post.title) {
           return {
@@ -104,6 +115,7 @@ export default function HomeScreen() {
             caption: post.selftext?.substring(0, 100) || "No description.",
             aiSummary: "Summary will be generated here",
             tags: ["reddit", post.subreddit],
+            url: permalink,
           };
         } else if (post.body) {
           return {
@@ -115,6 +127,7 @@ export default function HomeScreen() {
             caption: post.body.substring(0, 100),
             aiSummary: "Summary will be generated here",
             tags: ["reddit", post.subreddit],
+            url: permalink,
           };
         } else {
           return {
@@ -126,6 +139,7 @@ export default function HomeScreen() {
             caption: "No description available.",
             aiSummary: "Summary will be generated here",
             tags: ["reddit"],
+            url: permalink,
           };
         }
       });
@@ -163,7 +177,7 @@ export default function HomeScreen() {
     }
   };
 
-  const handleSearch = (text: string, data: any[] = bookmarks) => {
+  const handleSearch = async (text: string, data: any[] = bookmarks) => {
     setSearchText(text);
     if (!text.trim()) {
       setFilteredBookmarks(data);
@@ -171,9 +185,18 @@ export default function HomeScreen() {
     }
 
     const lowerText = text.toLowerCase();
-    const filtered = data.filter((item) =>
-      `${item.title} ${item.caption} ${item.tags?.join(" ")}`.toLowerCase().includes(lowerText)
-    );
+    const filtered: any[] = [];
+
+    for (const item of data) {
+      const localTags = await getTagsForBookmark(item.title);
+      const allTags = [...(item.tags || []), ...localTags];
+      const searchContent = `${item.title} ${item.caption} ${allTags.join(" ")}`.toLowerCase();
+
+      if (searchContent.includes(lowerText)) {
+        filtered.push(item);
+      }
+    }
+
     setFilteredBookmarks(filtered);
   };
 
@@ -196,11 +219,10 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-  if (searchText.trim() === "") {
-    setFilteredBookmarks(bookmarks);
-  }
-}, [searchText, bookmarks]);
-
+    if (searchText.trim() === "") {
+      setFilteredBookmarks(bookmarks);
+    }
+  }, [searchText, bookmarks]);
 
   return (
     <View style={styles.container}>
@@ -226,6 +248,7 @@ export default function HomeScreen() {
             caption={item.caption}
             aiSummary={item.aiSummary}
             tags={item.tags}
+            url={item.url}
           />
         )}
         onEndReached={onEndReached}
@@ -257,6 +280,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     color: "#888",
     fontSize: 16,
-    fontWeight: "300", // Thin font
+    fontWeight: "300",
   },
 });

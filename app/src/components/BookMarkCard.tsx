@@ -3,13 +3,17 @@ import { FontAwesome6 } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Image,
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   useWindowDimensions,
+  Pressable,
 } from "react-native";
+import { addTagToBookmark, getTagsForBookmark, removeTagFromBookmark } from "@/app/src/utils/tagStorage";
 
 type Props = {
   image?: string;
@@ -17,8 +21,9 @@ type Props = {
   source: "instagram" | "reddit" | "x" | "youtube";
   title: string;
   caption: string;
-  tags: string[];
+  tags: string[]; // Default tags
   aiSummary: string;
+  url?: string;
 };
 
 const platformIcons: Record<string, JSX.Element> = {
@@ -36,6 +41,7 @@ export default function BookmarkCard({
   caption,
   tags,
   aiSummary,
+  url,
 }: Props) {
   const [showSummary, setShowSummary] = useState(false);
   const [typedSummary, setTypedSummary] = useState("");
@@ -44,12 +50,14 @@ export default function BookmarkCard({
   const aiTagBadgeRef = useRef<View>(null);
   const { width: screenWidth } = useWindowDimensions();
   const [mediaHeight, setMediaHeight] = useState(200);
+  const [bookmarkTags, setBookmarkTags] = useState<string[]>(tags);
 
   const player = useVideoPlayer(video || "", (p) => {
     p.loop = true;
+    p.volume = 1.0;
+    p.play();
   });
 
-  // Typing animation for summary
   useEffect(() => {
     let index = 0;
     let timer: NodeJS.Timeout;
@@ -71,40 +79,38 @@ export default function BookmarkCard({
     return () => clearInterval(timer);
   }, [showSummary]);
 
-  // Dynamic media height (image or video)
   useEffect(() => {
-    const uri = image;
-    if (uri) {
+    if (image) {
       Image.getSize(
-        uri,
+        image,
         (width, height) => {
-          const MAX_ASPECT_RATIO = 1.0;
-          const MIN_ASPECT_RATIO = 0.4;
-          let aspectRatio = height / width;
-
-          if (aspectRatio > MAX_ASPECT_RATIO) aspectRatio = MAX_ASPECT_RATIO;
-          if (aspectRatio < MIN_ASPECT_RATIO) aspectRatio = MIN_ASPECT_RATIO;
-
+          const aspectRatio = Math.max(0.4, Math.min(1.0, height / width));
           setMediaHeight(screenWidth * aspectRatio);
         },
-        (error) => {
-          console.warn("Media size error:", error);
-          setMediaHeight(200); // fallback
-        }
+        () => setMediaHeight(200)
       );
     }
   }, [image, screenWidth]);
 
-  const handleAiTagPress = () => {
-    aiTagBadgeRef.current?.measureInWindow((x, y, width, height) => {
-      setModalPosition({ x: x + width / 2, y });
+  useEffect(() => {
+    getTagsForBookmark(title).then((loadedTags) => {
+      setBookmarkTags([...new Set([...tags, ...loadedTags])]);
     });
-    setShowModal(true);
+  }, [title]);
+
+  const handleAiTagPress = () => {
+    aiTagBadgeRef.current?.measureInWindow((x, y, width) => {
+      setModalPosition({ x: x + width / 2, y });
+      setShowModal(true);
+    });
   };
 
-  const handleTagModalSubmit = (newTag: string) => {
-    console.log("New tag added:", newTag);
-    // Update state or backend
+  const handleCardPress = () => {
+    if (url) {
+      Linking.openURL(url).catch((err) =>
+        console.warn("Failed to open URL:", err)
+      );
+    }
   };
 
   const renderMedia = () => {
@@ -119,27 +125,33 @@ export default function BookmarkCard({
             isMuted={false}
             volume={1.0}
             shouldPlay={true}
+            useNativeControls
           />
           <View style={styles.iconOverlay}>{platformIcons[source]}</View>
         </View>
       );
     } else if (image) {
       return (
-        <View>
+        <Pressable onPress={handleCardPress}>
           <Image
             source={{ uri: image }}
             style={[styles.media, { height: mediaHeight }]}
             resizeMode="contain"
           />
           <View style={styles.iconOverlay}>{platformIcons[source]}</View>
-        </View>
+        </Pressable>
       );
     }
     return null;
   };
 
+  const shouldCardBeTappable = !video && (!image || image.length > 0);
+
   return (
-    <View style={styles.card}>
+    <Pressable
+      onPress={shouldCardBeTappable ? handleCardPress : undefined}
+      style={styles.card}
+    >
       {renderMedia()}
       <View style={styles.textContent}>
         <Text style={styles.title}>{title}</Text>
@@ -157,15 +169,43 @@ export default function BookmarkCard({
         )}
 
         <View style={styles.tagContainer}>
-          {tags.map((tag, index) => (
-            <View key={index} style={styles.tagBadge}>
+          {bookmarkTags.map((tag, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.tagBadge}
+              onLongPress={() => {
+                Alert.alert(
+                  "Remove Tag",
+                  `Do you want to remove the Tag: "${tag}"?`,
+                  [
+                    {
+                      text: "Cancel",
+                      style: "cancel"
+                    },
+                    {
+                      text: "Remove",
+                      style: "destructive",
+                      onPress: async () => {
+                        await removeTagFromBookmark(title, tag);
+                        setBookmarkTags((prev) => prev.filter((t) => t !== tag));
+                      }
+                    }
+                  ]
+                );
+              }}
+
+              activeOpacity={0.8}
+            >
               <Text style={styles.tagText}>{tag}</Text>
-            </View>
+            </TouchableOpacity>
+
           ))}
+
           <TouchableOpacity
             ref={aiTagBadgeRef}
             style={styles.aiTagBadge}
             onPress={handleAiTagPress}
+            activeOpacity={1}
           >
             <Text style={styles.tagText}>Add Tag</Text>
           </TouchableOpacity>
@@ -175,10 +215,15 @@ export default function BookmarkCard({
       <FloatingTagModal
         visible={showModal}
         onClose={() => setShowModal(false)}
-        onSubmit={handleTagModalSubmit}
         position={modalPosition}
+        onSubmit={async (newTag) => {
+          if (!bookmarkTags.includes(newTag)) {
+            await addTagToBookmark(title, newTag);
+            setBookmarkTags((prev) => [newTag, ...prev]);
+          }
+        }}
       />
-    </View>
+    </Pressable>
   );
 }
 
