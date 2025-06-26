@@ -1,9 +1,10 @@
 import BookmarkCard from "@/app/src/components/BookMarkCard";
 import TopHeader from "@/app/src/components/TopHeader";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -15,6 +16,50 @@ import eventBus from "utils/eventBus";
 import debounce from "lodash.debounce";
 import { getTagsForBookmark } from "utils/tagStorage";
 import { refreshAccessToken } from "utils/RedditAuth";
+
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+
+const AnimatedBookmarkItem = ({ item, index }: { item: any; index: number }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        delay: index * 30,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        delay: index * 30,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }],
+      }}
+    >
+      <BookmarkCard
+        image={item.image}
+        video={item.video}
+        source={item.source}
+        title={item.title}
+        caption={item.caption}
+        aiSummary={item.aiSummary}
+        tags={item.tags}
+        url={item.url}
+      />
+    </Animated.View>
+  );
+};
 
 export default function HomeScreen() {
   const [bookmarks, setBookmarks] = useState<any[]>([]);
@@ -65,8 +110,9 @@ export default function HomeScreen() {
         setAfter(null);
       }
 
-      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${afterParam ? `&after=${afterParam}` : ""
-        }`;
+      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${
+        afterParam ? `&after=${afterParam}` : ""
+      }`;
 
       const savedResponse = await fetch(url, {
         headers: {
@@ -91,19 +137,13 @@ export default function HomeScreen() {
         const isVideo =
           post.is_video &&
           (post.media?.reddit_video?.dash_url || post.media?.reddit_video?.hls_url);
-
         const videoUrl =
           post.media?.reddit_video?.hls_url ||
           post.media?.reddit_video?.fallback_url ||
           post.media?.reddit_video?.dash_url ||
           null;
-
-        const highResImage =
-          post.preview?.images?.[0]?.source?.url?.replaceAll("&amp;", "&");
-
-        const permalink = post.permalink
-          ? `https://www.reddit.com${post.permalink}`
-          : null;
+        const highResImage = post.preview?.images?.[0]?.source?.url?.replaceAll("&amp;", "&");
+        const permalink = post.permalink ? `https://www.reddit.com${post.permalink}` : null;
 
         if (post.title) {
           return {
@@ -236,20 +276,11 @@ export default function HomeScreen() {
       </SafeAreaView>
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <FlatList
+      <AnimatedFlatList
         data={filteredBookmarks}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <BookmarkCard
-            image={item.image}
-            video={item.video}
-            source={item.source}
-            title={item.title}
-            caption={item.caption}
-            aiSummary={item.aiSummary}
-            tags={item.tags}
-            url={item.url}
-          />
+        renderItem={({ item, index }) => (
+          <AnimatedBookmarkItem item={item} index={index} />
         )}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
