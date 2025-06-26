@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Application from "expo-application";
 import { router } from "expo-router";
 import { Switch } from "react-native";
 import { DeviceEventEmitter } from "react-native";
@@ -29,7 +28,7 @@ const SettingsScreen = () => {
       },
     ]);
   };
-  
+
   const handleClearTags = () => {
     Alert.alert("Clear Tags", "Delete all your global manual tags?", [
       { text: "Cancel", style: "cancel" },
@@ -38,8 +37,8 @@ const SettingsScreen = () => {
         style: "destructive",
         onPress: async () => {
           try {
-            await AsyncStorage.multiRemove(["user_tags", "bookmark_tag_map"]); // ✅ clear both
-            DeviceEventEmitter.emit("globalTagsCleared"); // ✅ fire event
+            await AsyncStorage.multiRemove(["user_tags", "bookmark_tag_map"]);
+            DeviceEventEmitter.emit("globalTagsCleared");
             Alert.alert("Success", "Global manual tags cleared.");
           } catch (error) {
             console.error("Failed to clear global tags:", error);
@@ -92,33 +91,6 @@ const SettingsScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* About */}
-        <Text style={styles.section}>ABOUT</Text>
-        <View style={styles.card}>
-          <TouchableOpacity style={styles.row}>
-            <Feather name="info" size={22} color="#3498db" />
-            <View style={styles.textWrapper}>
-              <Text style={styles.title}>Version</Text>
-              <Text style={styles.sub}>
-                {Application.nativeApplicationVersion || "1.0.0"}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() =>
-              Alert.alert("Coming Soon", "Privacy Policy will be added soon.")
-            }
-          >
-            <Feather name="shield" size={22} color="#27ae60" />
-            <View style={styles.textWrapper}>
-              <Text style={styles.title}>Privacy Policy</Text>
-              <Text style={styles.sub}>Read our terms and policies</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
         { /* Video Autoplay */}
         <Text style={styles.section}>Media</Text>
         <View style={styles.card}>
@@ -134,6 +106,43 @@ const SettingsScreen = () => {
           </TouchableOpacity>
         </View>
 
+        {/* About */}
+        <Text style={styles.section}>ABOUT</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.row}>
+            <Feather name="info" size={22} color="#3498db" />
+            <View style={styles.textWrapper}>
+              <Text style={styles.title}>Version</Text>
+              <Text style={styles.sub}>
+                {"1.0.0"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() =>
+              Alert.alert(
+                "Privacy Policy",
+                "Taggy is committed to protecting your privacy. This Privacy Policy explains how we handle your data, and we've made it easy to understand.",
+                [
+                  { text: "Close", style: "cancel" },
+                  {
+                    text: "Read More",
+                    onPress: () => router.push("/PrivacyPolicy"),
+                  },
+                ]
+              )
+            }
+
+          >
+            <Feather name="shield" size={22} color="#27ae60" />
+            <View style={styles.textWrapper}>
+              <Text style={styles.title}>Privacy Policy</Text>
+              <Text style={styles.sub}>Read our terms and policies</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
 
         {/* Privacy & Security */}
         <Text style={styles.section}>PRIVACY & SECURITY</Text>
