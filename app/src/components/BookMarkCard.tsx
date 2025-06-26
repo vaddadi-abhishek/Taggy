@@ -1,4 +1,3 @@
-// ✅ BookmarkCard.tsx
 import FloatingTagModal from "@/app/src/components/FloatingTagModal";
 import { FontAwesome6 } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -25,7 +24,6 @@ type Props = {
   title: string;
   caption: string;
   tags: string[];
-  aiSummary: string;
   url?: string;
 };
 
@@ -43,11 +41,8 @@ export default function BookmarkCard({
   title,
   caption,
   tags,
-  aiSummary,
   url,
 }: Props) {
-  const [showSummary, setShowSummary] = useState(false);
-  const [typedSummary, setTypedSummary] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
   const aiTagBadgeRef = useRef<View>(null);
@@ -56,7 +51,6 @@ export default function BookmarkCard({
   const [bookmarkTags, setBookmarkTags] = useState<string[]>(tags);
   const [autoplay, setAutoplay] = useState<boolean | null>(null);
 
-  // ✅ Hook must be unconditionally called
   const player = useVideoPlayer(video || "", (p) => {
     p.loop = true;
     p.volume = 1.0;
@@ -73,44 +67,16 @@ export default function BookmarkCard({
   }, [autoplay, player]);
 
   useEffect(() => {
-    let index = 0;
-    let timer: NodeJS.Timeout;
-
-    if (showSummary) {
-      setTypedSummary("");
-      timer = setInterval(() => {
-        if (index < aiSummary.length) {
-          setTypedSummary((prev) => prev + aiSummary.charAt(index));
-          index++;
-        } else {
-          clearInterval(timer);
-        }
-      }, 15);
-    } else {
-      setTypedSummary("");
-    }
-
-    return () => clearInterval(timer);
-  }, [showSummary]);
-
-  useEffect(() => {
     const fetchTags = async () => {
       const loadedTags = await getTagsForBookmark(title);
       setBookmarkTags([...new Set(loadedTags)]);
     };
 
-    fetchTags(); // initial load
+    fetchTags();
 
-    const subscription = DeviceEventEmitter.addListener(
-      "globalTagsCleared",
-      fetchTags
-    );
-
-    return () => {
-      subscription.remove(); // clean up
-    };
+    const subscription = DeviceEventEmitter.addListener("globalTagsCleared", fetchTags);
+    return () => subscription.remove();
   }, [title]);
-
 
   useEffect(() => {
     if (image) {
@@ -189,17 +155,6 @@ export default function BookmarkCard({
       <View style={styles.textContent}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.caption}>{caption}</Text>
-
-        <TouchableOpacity
-          style={styles.aiBadge}
-          onPress={() => setShowSummary(!showSummary)}
-        >
-          <Text style={styles.aiBadgeText}>AI Summarize</Text>
-        </TouchableOpacity>
-
-        {showSummary && (
-          <Text style={styles.aiSummaryText}>{typedSummary}</Text>
-        )}
 
         <View style={styles.tagContainer}>
           {bookmarkTags.map((tag, index) => (
@@ -295,25 +250,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginBottom: 10,
-  },
-  aiBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#d946ef",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    marginBottom: 8,
-  },
-  aiBadgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  aiSummaryText: {
-    fontSize: 13,
-    color: "#444",
-    marginBottom: 10,
-    lineHeight: 18,
   },
   tagContainer: {
     flexDirection: "row",

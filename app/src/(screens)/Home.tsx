@@ -53,7 +53,6 @@ const AnimatedBookmarkItem = ({ item, index }: { item: any; index: number }) => 
         source={item.source}
         title={item.title}
         caption={item.caption}
-        aiSummary={item.aiSummary}
         tags={item.tags}
         url={item.url}
       />
@@ -153,7 +152,6 @@ export default function HomeScreen() {
             source: "reddit",
             title: post.title || "Untitled",
             caption: post.selftext?.substring(0, 100) || "No description.",
-            aiSummary: "Summary will be generated here",
             tags: ["reddit", post.subreddit],
             url: permalink,
           };
@@ -165,7 +163,6 @@ export default function HomeScreen() {
             source: "reddit",
             title: `Comment on r/${post.subreddit}`,
             caption: post.body.substring(0, 100),
-            aiSummary: "Summary will be generated here",
             tags: ["reddit", post.subreddit],
             url: permalink,
           };
@@ -177,7 +174,6 @@ export default function HomeScreen() {
             source: "reddit",
             title: "Unknown saved item",
             caption: "No description available.",
-            aiSummary: "Summary will be generated here",
             tags: ["reddit"],
             url: permalink,
           };

@@ -2,11 +2,11 @@ import 'dotenv/config';
 
 export default {
   expo: {
-    name: 'taggy',
+    name: 'Taggy',
     slug: 'taggy',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/images/icon.png',
+    icon: './assets/images/taggy.png',
     scheme: 'taggy',
     userInterfaceStyle: 'automatic',
     newArchEnabled: true,
@@ -15,7 +15,7 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: './assets/images/adaptive-icon.png',
+        foregroundImage: './assets/images/taggy.png',
         backgroundColor: '#ffffff',
       },
       edgeToEdgeEnabled: true,
@@ -30,7 +30,7 @@ export default {
       [
         'expo-splash-screen',
         {
-          image: './assets/images/splash-icon.png',
+          image: './assets/images/taggy.png',
           imageWidth: 200,
           resizeMode: 'contain',
           backgroundColor: '#ffffff',

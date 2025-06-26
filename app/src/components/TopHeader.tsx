@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   BackHandler,
   StyleSheet,
-  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
