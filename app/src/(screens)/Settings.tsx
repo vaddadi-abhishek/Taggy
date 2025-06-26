@@ -8,11 +8,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons, MaterialIcons, Feather } from "@expo/vector-icons";
+import { MaterialIcons, Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Application from "expo-application";
 import { router } from "expo-router";
-import { Switch } from "react-native"; // Add this
+import { Switch } from "react-native";
+import { DeviceEventEmitter } from "react-native";
 
 const SettingsScreen = () => {
   const handleLogout = () => {
@@ -28,16 +29,22 @@ const SettingsScreen = () => {
       },
     ]);
   };
-
+  
   const handleClearTags = () => {
-    Alert.alert("Clear Tags", "Delete all your manual tags?", [
+    Alert.alert("Clear Tags", "Delete all your global manual tags?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Yes",
         style: "destructive",
         onPress: async () => {
-          await AsyncStorage.removeItem("manual_tags");
-          Alert.alert("Success", "All tags cleared.");
+          try {
+            await AsyncStorage.multiRemove(["user_tags", "bookmark_tag_map"]); // ✅ clear both
+            DeviceEventEmitter.emit("globalTagsCleared"); // ✅ fire event
+            Alert.alert("Success", "Global manual tags cleared.");
+          } catch (error) {
+            console.error("Failed to clear global tags:", error);
+            Alert.alert("Error", "Failed to clear global tags.");
+          }
         },
       },
     ]);

@@ -13,6 +13,7 @@ import {
   View,
   useWindowDimensions,
   Pressable,
+  DeviceEventEmitter,
 } from "react-native";
 import { addTagToBookmark, getTagsForBookmark, removeTagFromBookmark } from "utils/tagStorage";
 import { getAutoplaySetting } from "utils/videoAutoPlay";
@@ -91,6 +92,25 @@ export default function BookmarkCard({
 
     return () => clearInterval(timer);
   }, [showSummary]);
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      const loadedTags = await getTagsForBookmark(title);
+      setBookmarkTags([...new Set(loadedTags)]);
+    };
+
+    fetchTags(); // initial load
+
+    const subscription = DeviceEventEmitter.addListener(
+      "globalTagsCleared",
+      fetchTags
+    );
+
+    return () => {
+      subscription.remove(); // clean up
+    };
+  }, [title]);
+
 
   useEffect(() => {
     if (image) {
