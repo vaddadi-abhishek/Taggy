@@ -1,3 +1,4 @@
+// ✅ BookmarkCard.tsx
 import FloatingTagModal from "@/app/src/components/FloatingTagModal";
 import { FontAwesome6 } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -13,7 +14,8 @@ import {
   useWindowDimensions,
   Pressable,
 } from "react-native";
-import { addTagToBookmark, getTagsForBookmark, removeTagFromBookmark } from "@/app/src/utils/tagStorage";
+import { addTagToBookmark, getTagsForBookmark, removeTagFromBookmark } from "utils/tagStorage";
+import { getAutoplaySetting } from "utils/videoAutoPlay";
 
 type Props = {
   image?: string;
@@ -21,7 +23,7 @@ type Props = {
   source: "instagram" | "reddit" | "x" | "youtube";
   title: string;
   caption: string;
-  tags: string[]; // Default tags
+  tags: string[];
   aiSummary: string;
   url?: string;
 };
@@ -51,12 +53,23 @@ export default function BookmarkCard({
   const { width: screenWidth } = useWindowDimensions();
   const [mediaHeight, setMediaHeight] = useState(200);
   const [bookmarkTags, setBookmarkTags] = useState<string[]>(tags);
+  const [autoplay, setAutoplay] = useState<boolean | null>(null);
 
+  // ✅ Hook must be unconditionally called
   const player = useVideoPlayer(video || "", (p) => {
     p.loop = true;
     p.volume = 1.0;
-    p.play();
   });
+
+  useEffect(() => {
+    getAutoplaySetting().then(setAutoplay);
+  }, []);
+
+  useEffect(() => {
+    if (autoplay && player) {
+      player.play();
+    }
+  }, [autoplay, player]);
 
   useEffect(() => {
     let index = 0;
@@ -114,7 +127,7 @@ export default function BookmarkCard({
   };
 
   const renderMedia = () => {
-    if (video && player) {
+    if (video && autoplay !== null) {
       return (
         <View>
           <VideoView
@@ -124,8 +137,8 @@ export default function BookmarkCard({
             allowsPictureInPicture
             isMuted={false}
             volume={1.0}
-            shouldPlay={true}
             useNativeControls
+            shouldPlay={autoplay}
           />
           <View style={styles.iconOverlay}>{platformIcons[source]}</View>
         </View>
@@ -178,27 +191,22 @@ export default function BookmarkCard({
                   "Remove Tag",
                   `Do you want to remove the Tag: "${tag}"?`,
                   [
-                    {
-                      text: "Cancel",
-                      style: "cancel"
-                    },
+                    { text: "Cancel", style: "cancel" },
                     {
                       text: "Remove",
                       style: "destructive",
                       onPress: async () => {
                         await removeTagFromBookmark(title, tag);
                         setBookmarkTags((prev) => prev.filter((t) => t !== tag));
-                      }
-                    }
+                      },
+                    },
                   ]
                 );
               }}
-
               activeOpacity={0.8}
             >
               <Text style={styles.tagText}>{tag}</Text>
             </TouchableOpacity>
-
           ))}
 
           <TouchableOpacity

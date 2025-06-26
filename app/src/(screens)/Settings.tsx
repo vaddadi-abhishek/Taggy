@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Alert,
   ScrollView,
@@ -12,6 +12,7 @@ import { Ionicons, MaterialIcons, Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Application from "expo-application";
 import { router } from "expo-router";
+import { Switch } from "react-native"; // Add this
 
 const SettingsScreen = () => {
   const handleLogout = () => {
@@ -40,6 +41,22 @@ const SettingsScreen = () => {
         },
       },
     ]);
+  };
+
+  const [autoplayEnabled, setAutoplayEnabled] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem("autoplay_videos").then((value) => {
+      if (value !== null) {
+        setAutoplayEnabled(value === "true");
+      }
+    });
+  }, []);
+
+  const toggleAutoplay = async () => {
+    const newValue = !autoplayEnabled;
+    setAutoplayEnabled(newValue);
+    await AsyncStorage.setItem("autoplay_videos", newValue.toString());
   };
 
   return (
@@ -94,6 +111,22 @@ const SettingsScreen = () => {
             </View>
           </TouchableOpacity>
         </View>
+
+        { /* Video Autoplay */}
+        <Text style={styles.section}>Media</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.row} onPress={toggleAutoplay}>
+            <Feather name="video" size={22} color="#9b59b6" />
+            <View style={[styles.textWrapper, { flex: 1 }]}>
+              <Text style={styles.title}>Autoplay Videos</Text>
+              <Text style={styles.sub}>
+                {autoplayEnabled ? "Videos play automatically" : "Videos require tap"}
+              </Text>
+            </View>
+            <Switch value={autoplayEnabled} onValueChange={toggleAutoplay} />
+          </TouchableOpacity>
+        </View>
+
 
         {/* Privacy & Security */}
         <Text style={styles.section}>PRIVACY & SECURITY</Text>

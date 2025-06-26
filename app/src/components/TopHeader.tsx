@@ -37,13 +37,18 @@ export default function HomeHeader({ onSearchTextChange }: Props) {
   }, [searching]);
 
   useEffect(() => {
-    if (searching && searchInputRef.current) {
-      const timeout = setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timeout);
+    if (searching) {
+      const focusInput = () => {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            searchInputRef.current?.focus();
+          }, 50); // slight delay after layout
+        });
+      };
+      focusInput();
     }
   }, [searching]);
+
 
   const handleClose = () => {
     setSearching(false);
