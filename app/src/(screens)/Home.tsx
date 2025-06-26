@@ -93,8 +93,8 @@ export default function HomeScreen() {
           (post.media?.reddit_video?.dash_url || post.media?.reddit_video?.hls_url);
 
         const videoUrl =
-          post.media?.reddit_video?.fallback_url ||
           post.media?.reddit_video?.hls_url ||
+          post.media?.reddit_video?.fallback_url ||
           post.media?.reddit_video?.dash_url ||
           null;
 
