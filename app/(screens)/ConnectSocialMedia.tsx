@@ -9,8 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import eventBus from "utils/eventBus";
-import handleSocialConnect from "utils/socialAuthDispatcher";
+import eventBus from "@/src/utils/eventBus";
+import handleSocialConnect from "@/src/utils/socialAuthDispatcher";
 
 const socialPlatforms = [
   { id: "1", name: "Reddit", key: "reddit" },

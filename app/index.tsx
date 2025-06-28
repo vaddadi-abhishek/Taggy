@@ -1,6 +1,7 @@
-import globalStyles from '@/app/src/styles/globalStyles';
+import globalStyles from '@/src/styles/globalStyles';
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   Image,
   StyleSheet,
@@ -9,93 +10,31 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useRouter, useSearchParams } from 'expo-router';
-import Constants from 'expo-constants';
-import * as AuthSession from 'expo-auth-session';
-import { Buffer } from 'buffer';
-
-const { TOKEN_ENDPOINT, REDDIT_CLIENT_ID } = Constants.expoConfig?.extra || {};
-
-// 👇 Update this to your correct redirect URI
-const REDIRECT_URI = AuthSession.makeRedirectUri({
-  native: '', // Leave blank for managed workflow
-  useProxy: false,
-});
-
-const discovery = {
-  authorizationEndpoint: 'https://www.reddit.com/api/v1/authorize.compact',
-  tokenEndpoint: TOKEN_ENDPOINT,
-};
+import { router } from 'expo-router';
+import handleSocialConnect from '@/src/utils/socialAuthDispatcher';
 
 export default function IndexScreen() {
   const [loading, setLoading] = useState(true);
-  const [authRequest, result, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: REDDIT_CLIENT_ID,
-      scopes: ['identity', 'read', 'history', 'save'],
-      redirectUri: REDIRECT_URI,
-      responseType: 'code',
-      usePKCE: true,
-      extraParams: {
-        duration: 'permanent',
-      },
-    },
-    discovery
-  );
 
-  // ✅ Check token on load
+  // ✅ On load, check if Reddit is already connected
   useEffect(() => {
-    const checkExistingToken = async () => {
+    const checkRedditToken = async () => {
       const token = await AsyncStorage.getItem('reddit_token');
       if (token) {
-        router.replace('/src/(screens)/Home');
+        router.replace('/Home');
       } else {
         setLoading(false);
       }
     };
-    checkExistingToken();
+    checkRedditToken();
   }, []);
 
-  // ✅ Handle redirect result (token exchange)
-  useEffect(() => {
-    const handleRedirect = async () => {
-      if (result?.type === 'success' && result.params.code) {
-        const code = result.params.code;
-        const creds = Buffer.from(`${REDDIT_CLIENT_ID}:`).toString('base64');
-
-        try {
-          const res = await fetch(discovery.tokenEndpoint, {
-            method: 'POST',
-            headers: {
-              Authorization: `Basic ${creds}`,
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-              grant_type: 'authorization_code',
-              code,
-              redirect_uri: REDIRECT_URI,
-            }).toString(),
-          });
-
-          const tokenData = await res.json();
-          if (tokenData.access_token) {
-            await AsyncStorage.setItem('reddit_token', tokenData.access_token);
-            router.replace('/src/(screens)/Home');
-          } else {
-            console.error('❌ Failed to fetch token:', tokenData);
-          }
-        } catch (e) {
-          console.error('❌ Reddit OAuth error:', e);
-        }
-      }
-    };
-
-    handleRedirect();
-  }, [result]);
-
   const startRedditLogin = async () => {
-    if (authRequest) {
-      await promptAsync({ useProxy: false });
+    const connected = await handleSocialConnect('reddit', true);
+    if (connected) {
+      router.replace('/Home');
+    } else {
+      console.warn('❌ Reddit login failed');
     }
   };
 

@@ -1,5 +1,5 @@
-import BookmarkCard from "@/app/src/components/BookMarkCard";
-import TopHeader from "@/app/src/components/TopHeader";
+import BookmarkCard from "@/src/components/BookMarkCard";
+import TopHeader from "@/src/components/TopHeader";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
@@ -12,10 +12,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import eventBus from "utils/eventBus";
+import eventBus from "@/src/utils/eventBus";
 import debounce from "lodash.debounce";
-import { getTagsForBookmark } from "utils/tagStorage";
-import { refreshAccessToken } from "utils/RedditAuth";
+import { getTagsForBookmark } from "@/src/utils/tagStorage";
+import { refreshAccessToken } from "@/src/utils/RedditAuth";
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 

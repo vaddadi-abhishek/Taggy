@@ -18,7 +18,7 @@ import {
   addGlobalTag,
   deleteGlobalTag,
   updateGlobalTag,
-} from "@/app/src/utils/tagStorage";
+} from "@/src/utils/tagStorage";
 
 export default function TagsScreen() {
   const [tags, setTags] = useState<string[]>([]);

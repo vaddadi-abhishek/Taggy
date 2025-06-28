@@ -1,4 +1,4 @@
-import FloatingTagModal from "@/app/src/components/FloatingTagModal";
+import FloatingTagModal from "@/src/components/FloatingTagModal";
 import { FontAwesome6 } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useEffect, useRef, useState } from "react";
@@ -14,8 +14,8 @@ import {
   Pressable,
   DeviceEventEmitter,
 } from "react-native";
-import { addTagToBookmark, getTagsForBookmark, removeTagFromBookmark } from "utils/tagStorage";
-import { getAutoplaySetting } from "utils/videoAutoPlay";
+import { addTagToBookmark, getTagsForBookmark, removeTagFromBookmark } from "@/src/utils/tagStorage";
+import { getAutoplaySetting } from "@/src/utils/videoAutoPlay";
 
 type Props = {
   image?: string;
