@@ -14,8 +14,13 @@ import {
   Pressable,
   DeviceEventEmitter,
 } from "react-native";
-import { addTagToBookmark, getTagsForBookmark, removeTagFromBookmark } from "@/src/utils/tagStorage";
+import {
+  addTagToBookmark,
+  getTagsForBookmark,
+  removeTagFromBookmark,
+} from "@/src/utils/tagStorage";
 import { getAutoplaySetting } from "@/src/utils/videoAutoPlay";
+import { useTheme } from "@/src/context/ThemeContext"; // 👈 your ThemeContext
 
 type Props = {
   image?: string;
@@ -43,6 +48,9 @@ export default function BookmarkCard({
   tags,
   url,
 }: Props) {
+  const { navigationTheme } = useTheme(); // 👈 get theme
+  const colors = navigationTheme.colors;
+
   const [showModal, setShowModal] = useState(false);
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
   const aiTagBadgeRef = useRef<View>(null);
@@ -118,7 +126,13 @@ export default function BookmarkCard({
         <View>
           <VideoView
             player={player}
-            style={[styles.media, { height: mediaHeight }]}
+            style={[
+              styles.media,
+              {
+                height: mediaHeight,
+                backgroundColor: navigationTheme.dark ? "#1a1a1a" : "#f2f2f2",
+              },
+            ]}
             allowsFullscreen
             allowsPictureInPicture
             isMuted={false}
@@ -126,7 +140,9 @@ export default function BookmarkCard({
             useNativeControls
             shouldPlay={autoplay}
           />
-          <View style={styles.iconOverlay}>{platformIcons[source]}</View>
+          <View style={[styles.iconOverlay, { backgroundColor: colors.card }]}>
+            {platformIcons[source]}
+          </View>
         </View>
       );
     } else if (image) {
@@ -134,10 +150,18 @@ export default function BookmarkCard({
         <Pressable onPress={handleCardPress}>
           <Image
             source={{ uri: image }}
-            style={[styles.media, { height: mediaHeight }]}
+            style={[
+              styles.media,
+              {
+                height: mediaHeight,
+                backgroundColor: navigationTheme.dark ? "#1a1a1a" : "#f2f2f2",
+              },
+            ]}
             resizeMode="contain"
           />
-          <View style={styles.iconOverlay}>{platformIcons[source]}</View>
+          <View style={[styles.iconOverlay, { backgroundColor: colors.card }]}>
+            {platformIcons[source]}
+          </View>
         </Pressable>
       );
     }
@@ -149,18 +173,18 @@ export default function BookmarkCard({
   return (
     <Pressable
       onPress={shouldCardBeTappable ? handleCardPress : undefined}
-      style={styles.card}
+      style={[styles.card, { backgroundColor: navigationTheme.dark ? "#2a2a2a" : colors.card, }]}
     >
       {renderMedia()}
       <View style={styles.textContent}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.caption}>{caption}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.caption, { color: colors.text }]}>{caption}</Text>
 
         <View style={styles.tagContainer}>
           {bookmarkTags.map((tag, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.tagBadge}
+              style={[styles.tagBadge, { backgroundColor: colors.border }]}
               onLongPress={() => {
                 Alert.alert(
                   "Remove Tag",
@@ -180,7 +204,7 @@ export default function BookmarkCard({
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.tagText}>{tag}</Text>
+              <Text style={[styles.tagText, { color: colors.text }]}>{tag}</Text>
             </TouchableOpacity>
           ))}
 
@@ -213,7 +237,6 @@ export default function BookmarkCard({
 const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
-    backgroundColor: "#fff",
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 6,
@@ -230,7 +253,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 10,
     right: 10,
-    backgroundColor: "#fff",
     borderRadius: 20,
     padding: 6,
     shadowColor: "#000",
@@ -248,7 +270,6 @@ const styles = StyleSheet.create({
   },
   caption: {
     fontSize: 14,
-    color: "#666",
     marginBottom: 10,
   },
   tagContainer: {
@@ -257,7 +278,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tagBadge: {
-    backgroundColor: "#eee",
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,

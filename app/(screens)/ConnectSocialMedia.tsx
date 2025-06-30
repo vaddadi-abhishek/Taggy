@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import eventBus from "@/src/utils/eventBus";
 import handleSocialConnect from "@/src/utils/socialAuthDispatcher";
+import { useNavigationTheme, useTheme } from "@/src/context/ThemeContext";
 
 const socialPlatforms = [
   { id: "1", name: "Reddit", key: "reddit" },
@@ -25,19 +26,21 @@ const platformIcons: Record<string, JSX.Element> = {
 };
 
 export default function ConnectSocialMedia() {
+  const { theme } = useTheme();
+  const navigationTheme = useNavigationTheme();
+  const { colors } = navigationTheme;
+  const isDark = theme === "dark";
+
   const [connected, setConnected] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkTokenStatus = async () => {
       const initialConnectedState: Record<string, boolean> = {};
-
-      // Check each platform for existing tokens
       for (const platform of socialPlatforms) {
         const token = await AsyncStorage.getItem(`${platform.key}_token`);
         initialConnectedState[platform.id] = !!token;
       }
-
       setConnected(initialConnectedState);
       setLoading(false);
     };
@@ -49,16 +52,12 @@ export default function ConnectSocialMedia() {
     const isConnected = connected[item.id];
 
     if (!isConnected) {
-      // Connect logic
       const result = await handleSocialConnect(item.key, true);
       if (result) {
         setConnected((prev) => ({ ...prev, [item.id]: true }));
-
-        // 🔥 Emit event after connecting
         eventBus.emit("refreshFeed");
       }
     } else {
-      // Show alert before disconnecting
       Alert.alert(
         "Are you sure?",
         `If you disconnect ${item.name}, all your imported bookmarks and tags will be lost.`,
@@ -72,8 +71,6 @@ export default function ConnectSocialMedia() {
               if (result) {
                 await AsyncStorage.removeItem(`${item.key}_token`);
                 setConnected((prev) => ({ ...prev, [item.id]: false }));
-
-                // 🔥 Emit event after disconnecting
                 eventBus.emit("refreshFeed");
               }
             },
@@ -88,10 +85,22 @@ export default function ConnectSocialMedia() {
     const isReddit = item.key === "reddit";
 
     return (
-      <View style={[styles.card, !isReddit && styles.disabledCard]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.card },
+          !isReddit && styles.disabledCard,
+        ]}
+      >
         <View style={styles.left}>
           <View style={styles.icon}>{platformIcons[item.key]}</View>
-          <Text style={[styles.platform, !isReddit && styles.disabledText]}>
+          <Text
+            style={[
+              styles.platform,
+              { color: colors.text },
+              !isReddit && styles.disabledText,
+            ]}
+          >
             {item.name}
           </Text>
         </View>
@@ -106,21 +115,30 @@ export default function ConnectSocialMedia() {
             disabled={loading}
           >
             <Text
-              style={[styles.buttonText, isConnected && styles.connectedText]}
+              style={[
+                styles.buttonText,
+                isConnected && styles.connectedText,
+              ]}
             >
               {loading ? "Checking..." : isConnected ? "Disconnect" : "Connect"}
             </Text>
           </TouchableOpacity>
         ) : (
-          <Text style={styles.comingSoon}>Coming Soon</Text>
+          <Text
+            style={[
+              styles.comingSoon,
+              { color: isDark ? "#aaa" : "#666" },
+            ]}
+          >
+            Coming Soon
+          </Text>
         )}
       </View>
     );
   };
 
-
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={socialPlatforms}
         keyExtractor={(item) => item.id}
@@ -132,19 +150,10 @@ export default function ConnectSocialMedia() {
   );
 }
 
-// ... (keep the same styles as before)
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: "#fff",
-  },
-  header: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 20,
-    color: "#222",
   },
   list: {
     paddingBottom: 20,
@@ -153,10 +162,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#f9f9f9",
     padding: 14,
     borderRadius: 12,
-    elevation: 1,
+    elevation: 2,
   },
   left: {
     flexDirection: "row",
@@ -168,7 +176,6 @@ const styles = StyleSheet.create({
   platform: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#333",
   },
   button: {
     paddingVertical: 6,
@@ -176,7 +183,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   connect: {
-    backgroundColor: "#ccc",
+    backgroundColor: "#999",
   },
   connected: {
     backgroundColor: "#b91010",
@@ -189,14 +196,13 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   disabledCard: {
-    opacity: 0.5,
+    backgroundColor: "#121212",
   },
   disabledText: {
-    color: "#aaa",
+    color: "#444",
   },
   comingSoon: {
     fontSize: 12,
-    color: "#999",
     fontStyle: "italic",
     fontWeight: "600",
   },

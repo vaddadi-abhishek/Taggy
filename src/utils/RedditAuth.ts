@@ -24,7 +24,12 @@ const printAsyncStorage = async () => {
 
 printAsyncStorage();
 
-const REDIRECT_URI = "taggy://redirect";
+// const REDIRECT_URI = "taggy://redirect";
+const REDIRECT_URI = AuthSession.makeRedirectUri({
+  native: "", // Ensure this matches your actual app scheme
+  useProxy: false, // Ensures it works in Expo Go
+});
+
 console.log("REDIRECT URI:", REDIRECT_URI)
 
 const discovery = {

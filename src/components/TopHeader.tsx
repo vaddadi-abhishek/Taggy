@@ -9,20 +9,23 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
+import { useTheme } from "@/src/context/ThemeContext"; // ✅ Custom theme hook
 
 interface Props {
   onSearchTextChange?: (text: string) => void;
 }
 
-export default function HomeHeader({ onSearchTextChange }: Props) {
+export default function TopHeader({ onSearchTextChange }: Props) {
   const [searching, setSearching] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
+  const { navigationTheme, dark } = useTheme(); // ✅ Use dark flag
+  const { colors } = navigationTheme;
 
   useEffect(() => {
     const backAction = () => {
       if (searching) {
         setSearching(false);
-        onSearchTextChange?.(""); // <-- Clear search text on back
+        onSearchTextChange?.("");
         return true;
       }
       return false;
@@ -37,46 +40,55 @@ export default function HomeHeader({ onSearchTextChange }: Props) {
 
   useEffect(() => {
     if (searching) {
-      const focusInput = () => {
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            searchInputRef.current?.focus();
-          }, 50); // slight delay after layout
-        });
-      };
-      focusInput();
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 50);
+      });
     }
   }, [searching]);
 
-
   const handleClose = () => {
     setSearching(false);
-    onSearchTextChange?.(""); // <-- Clear search text on close
+    onSearchTextChange?.("");
   };
 
   return (
-    <View style={styles.topBar}>
+    <View
+      style={[
+        styles.topBar,
+        {
+          borderBottomColor: colors.border,
+          backgroundColor: dark ? "#1f1f1f" : colors.background, // ✅ dark mode fix
+        },
+      ]}
+    >
       {!searching ? (
         <>
-          <Text style={styles.logo}>
-            <Feather name="bookmark" size={24} color="#7c3aed" />
-            Taggy
+          <Text style={[styles.logo, { color: colors.primary }]}>
+            <Feather name="bookmark" size={24} color={colors.primary} /> Taggy
           </Text>
           <TouchableOpacity onPress={() => setSearching(true)}>
-            <Ionicons name="search" size={24} color="black" />
+            <Ionicons name="search" size={24} color={colors.text} />
           </TouchableOpacity>
         </>
       ) : (
         <>
           <TextInput
             ref={searchInputRef}
-            style={styles.searchInput}
+            style={[
+              styles.searchInput,
+              {
+                backgroundColor: colors.card,
+                color: colors.text,
+              },
+            ]}
             placeholder="Search..."
-            placeholderTextColor="#888"
+            placeholderTextColor={colors.text}
             onChangeText={onSearchTextChange}
           />
           <TouchableOpacity onPress={handleClose}>
-            <Ionicons name="close" size={24} color="black" />
+            <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </>
       )}
@@ -92,16 +104,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
   },
   logo: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#7c3aed",
   },
   searchInput: {
     flex: 1,
-    backgroundColor: "#f1f1f1",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,

@@ -12,15 +12,18 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 import {
   getAllTags,
   addGlobalTag,
   deleteGlobalTag,
   updateGlobalTag,
 } from "@/src/utils/tagStorage";
+import { useTheme } from "@/src/context/ThemeContext"; // ✅ custom theme context
 
 export default function TagsScreen() {
+  const theme = useTheme();
+  const { colors, dark } = theme.navigationTheme;
+
   const [tags, setTags] = useState<string[]>([]);
   const [searchText, setSearchText] = useState("");
   const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
@@ -107,11 +110,19 @@ export default function TagsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Animated.View style={[styles.searchRow, { transform: [{ translateX: shakeAnim }] }]}>
         <TextInput
-          style={styles.searchInput}
+          style={[
+            styles.searchInput,
+            {
+              backgroundColor: colors.card,
+              color: colors.text,
+              borderColor: colors.border,
+            },
+          ]}
           placeholder="Add or Search Tags"
+          placeholderTextColor={colors.border}
           value={searchText}
           onChangeText={setSearchText}
         />
@@ -121,7 +132,9 @@ export default function TagsScreen() {
         </TouchableOpacity>
       </Animated.View>
 
-      <Text style={styles.subheading}>Your Tags ({tags.length})</Text>
+      <Text style={[styles.subheading, { color: colors.text }]}>
+        Your Tags ({tags.length})
+      </Text>
 
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
@@ -129,18 +142,35 @@ export default function TagsScreen() {
         {tags
           .filter((tag) => tag.toLowerCase().includes(searchText.toLowerCase()))
           .map((tag, index) => (
-            <View key={tag} style={styles.tagRow}>
+            <View
+              key={tag}
+              style={[
+                styles.tagRow,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
               <View style={{ flex: 1 }}>
                 {editingTagIndex === index ? (
                   <TextInput
                     value={editedTagName}
                     onChangeText={setEditedTagName}
-                    style={styles.editInput}
+                    style={[
+                      styles.editInput,
+                      {
+                        backgroundColor: colors.background,
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
                     autoFocus
                     placeholder="Edit tag name"
+                    placeholderTextColor={colors.border}
                   />
                 ) : (
-                  <Text style={styles.tagText}>{tag}</Text>
+                  <Text style={[styles.tagText, { color: colors.text }]}>{tag}</Text>
                 )}
               </View>
               <View style={styles.actions}>
@@ -164,9 +194,8 @@ export default function TagsScreen() {
   );
 }
 
-
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#fff" },
+  container: { flex: 1, padding: 16 },
   searchRow: {
     flexDirection: "row",
     marginBottom: 16,
@@ -174,11 +203,11 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    backgroundColor: "#f0f0f0",
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 40,
     marginRight: 8,
+    borderWidth: 1,
   },
   addButton: {
     backgroundColor: "#6366f1",
@@ -202,10 +231,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#f5f5f5",
     padding: 12,
     borderRadius: 10,
     marginBottom: 10,
+    borderWidth: 1,
   },
   tagText: {
     fontSize: 14,
@@ -216,8 +245,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     padding: 6,
     borderRadius: 6,
-    backgroundColor: "#fff",
-    borderColor: "#ccc",
     borderWidth: 1,
   },
   actions: {

@@ -16,6 +16,7 @@ import eventBus from "@/src/utils/eventBus";
 import debounce from "lodash.debounce";
 import { getTagsForBookmark } from "@/src/utils/tagStorage";
 import { refreshAccessToken } from "@/src/utils/RedditAuth";
+import { useTheme } from "@/src/context/ThemeContext"; // ✅ Custom theme
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
@@ -41,12 +42,7 @@ const AnimatedBookmarkItem = ({ item, index }: { item: any; index: number }) => 
   }, []);
 
   return (
-    <Animated.View
-      style={{
-        opacity: fadeAnim,
-        transform: [{ translateY: slideAnim }],
-      }}
-    >
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
       <BookmarkCard
         image={item.image}
         video={item.video}
@@ -61,6 +57,7 @@ const AnimatedBookmarkItem = ({ item, index }: { item: any; index: number }) => 
 };
 
 export default function HomeScreen() {
+  const { colors } = useTheme().navigationTheme; // ✅ Dynamic theme
   const [bookmarks, setBookmarks] = useState<any[]>([]);
   const [filteredBookmarks, setFilteredBookmarks] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -71,21 +68,20 @@ export default function HomeScreen() {
   const [searchText, setSearchText] = useState("");
 
   const fetchUsername = async (token: string) => {
-    const userResponse = await fetch("https://oauth.reddit.com/api/v1/me", {
+    const res = await fetch("https://oauth.reddit.com/api/v1/me", {
       headers: {
         Authorization: `Bearer ${token}`,
         "User-Agent": "taggy-app/1.0 (by u/South_Pencil)",
       },
     });
-    if (!userResponse.ok) throw new Error("Failed to fetch user info");
-    const userData = await userResponse.json();
-    return userData.name;
+    if (!res.ok) throw new Error("User fetch failed");
+    const data = await res.json();
+    return data.name;
   };
 
   const loadSavedPosts = async (afterParam: string | null = null) => {
     try {
       let accessToken = await AsyncStorage.getItem("reddit_token");
-
       if (!accessToken) {
         const refreshed = await refreshAccessToken();
         if (refreshed) {
@@ -113,41 +109,38 @@ export default function HomeScreen() {
         afterParam ? `&after=${afterParam}` : ""
       }`;
 
-      const savedResponse = await fetch(url, {
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "User-Agent": "taggy-app/1.0 (by u/South_Pencil)",
         },
       });
 
-      if (!savedResponse.ok) {
-        const errData = await savedResponse.json();
-        console.error("Failed to fetch saved posts:", errData);
+      if (!response.ok) {
+        const errData = await response.json();
+        console.error("Reddit fetch failed:", errData);
         setError("Failed to fetch saved posts.");
         return;
       }
 
-      const savedJson = await savedResponse.json();
-      const posts = savedJson.data.children;
-      const newAfter = savedJson.data.after;
+      const json = await response.json();
+      const posts = json.data.children;
+      const newAfter = json.data.after;
 
       const parsed = posts.map((item: any, index: number) => {
         const post = item.data;
-        const isVideo =
-          post.is_video &&
-          (post.media?.reddit_video?.dash_url || post.media?.reddit_video?.hls_url);
+        const isVideo = post.is_video && post.media?.reddit_video;
         const videoUrl =
           post.media?.reddit_video?.hls_url ||
           post.media?.reddit_video?.fallback_url ||
-          post.media?.reddit_video?.dash_url ||
-          null;
-        const highResImage = post.preview?.images?.[0]?.source?.url?.replaceAll("&amp;", "&");
+          post.media?.reddit_video?.dash_url;
+        const imageUrl = post.preview?.images?.[0]?.source?.url?.replaceAll("&amp;", "&");
         const permalink = post.permalink ? `https://www.reddit.com${post.permalink}` : null;
 
         if (post.title) {
           return {
             id: post.id || index,
-            image: !isVideo ? highResImage : undefined,
+            image: !isVideo ? imageUrl : undefined,
             video: isVideo ? videoUrl : null,
             source: "reddit",
             title: post.title || "Untitled",
@@ -158,7 +151,7 @@ export default function HomeScreen() {
         } else if (post.body) {
           return {
             id: post.id || index,
-            image: !isVideo ? highResImage : undefined,
+            image: !isVideo ? imageUrl : undefined,
             video: isVideo ? videoUrl : null,
             source: "reddit",
             title: `Comment on r/${post.subreddit}`,
@@ -169,7 +162,7 @@ export default function HomeScreen() {
         } else {
           return {
             id: post.id || index,
-            image: !isVideo ? highResImage : undefined,
+            image: !isVideo ? imageUrl : undefined,
             video: isVideo ? videoUrl : null,
             source: "reddit",
             title: "Unknown saved item",
@@ -194,7 +187,7 @@ export default function HomeScreen() {
       setAfter(newAfter);
       setError(null);
     } catch (err) {
-      console.error("Fetch error:", err);
+      console.error("Load error:", err);
       setError("Could not fetch Reddit data.");
     }
   };
@@ -215,25 +208,19 @@ export default function HomeScreen() {
 
   const handleSearch = async (text: string, data: any[] = bookmarks) => {
     setSearchText(text);
-    if (!text.trim()) {
-      setFilteredBookmarks(data);
-      return;
-    }
+    if (!text.trim()) return setFilteredBookmarks(data);
 
-    const lowerText = text.toLowerCase();
-    const filtered: any[] = [];
+    const lower = text.toLowerCase();
+    const results: any[] = [];
 
     for (const item of data) {
       const localTags = await getTagsForBookmark(item.title);
       const allTags = [...(item.tags || []), ...localTags];
-      const searchContent = `${item.title} ${item.caption} ${allTags.join(" ")}`.toLowerCase();
-
-      if (searchContent.includes(lowerText)) {
-        filtered.push(item);
-      }
+      const content = `${item.title} ${item.caption} ${allTags.join(" ")}`.toLowerCase();
+      if (content.includes(lower)) results.push(item);
     }
 
-    setFilteredBookmarks(filtered);
+    setFilteredBookmarks(results);
   };
 
   const handleSearchDebounced = useCallback(
@@ -245,23 +232,17 @@ export default function HomeScreen() {
 
   useEffect(() => {
     onRefresh();
-    const refreshListener = () => {
-      loadSavedPosts(null);
-    };
+    const refreshListener = () => loadSavedPosts(null);
     eventBus.on("refreshFeed", refreshListener);
-    return () => {
-      eventBus.off("refreshFeed", refreshListener);
-    };
+    return () => eventBus.off("refreshFeed", refreshListener);
   }, []);
 
   useEffect(() => {
-    if (searchText.trim() === "") {
-      setFilteredBookmarks(bookmarks);
-    }
+    if (!searchText.trim()) setFilteredBookmarks(bookmarks);
   }, [searchText, bookmarks]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <SafeAreaView>
         <TopHeader
           onSearchTextChange={(text) => {
@@ -270,28 +251,23 @@ export default function HomeScreen() {
           }}
         />
       </SafeAreaView>
-      {error && <Text style={styles.error}>{error}</Text>}
+
+      {error && <Text style={[styles.error, { color: colors.notification }]}>{error}</Text>}
 
       <AnimatedFlatList
         data={filteredBookmarks}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item, index }) => (
-          <AnimatedBookmarkItem item={item} index={index} />
-        )}
+        renderItem={({ item, index }) => <AnimatedBookmarkItem item={item} index={index} />}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           !refreshing && searchText.trim().length > 0 ? (
-            <Text style={styles.noResults}>No Results</Text>
+            <Text style={[styles.noResults, { color: colors.border }]}>No Results</Text>
           ) : null
         }
         ListFooterComponent={
-          loadingMore ? (
-            <ActivityIndicator size="small" color="#6200ee" />
-          ) : null
+          loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null
         }
         contentContainerStyle={{ paddingBottom: 80 }}
       />
@@ -300,12 +276,15 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  error: { color: "red", textAlign: "center", marginVertical: 10 },
+  container: { flex: 1 },
+  error: {
+    textAlign: "center",
+    marginVertical: 10,
+    fontSize: 14,
+  },
   noResults: {
     textAlign: "center",
     marginTop: 20,
-    color: "#888",
     fontSize: 16,
     fontWeight: "300",
   },

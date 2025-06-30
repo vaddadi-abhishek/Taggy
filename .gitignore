@@ -45,3 +45,7 @@ app-example
 # Backend Folders and Files
 backend/venv
 __pycache__
+
+#Builds
+/android
+local.properties

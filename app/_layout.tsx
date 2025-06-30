@@ -1,10 +1,12 @@
+import { ThemeProvider, useNavigationTheme } from "@/src/context/ThemeContext";
 import { Stack } from "expo-router";
 
-export default function RootLayout() {
+export default function AppLayout() {
+  const navTheme = useNavigationTheme();
+
   return (
-    <Stack screenOptions={{
-      headerShown: false
-    }}>
-    </Stack>
+    <ThemeProvider>
+      <Stack theme={navTheme} screenOptions={{ headerShown: false }} />
+    </ThemeProvider>
   );
 }
