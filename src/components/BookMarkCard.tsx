@@ -77,7 +77,7 @@ export default function BookmarkCard({
   useEffect(() => {
     const fetchTags = async () => {
       const loadedTags = await getTagsForBookmark(title);
-      setBookmarkTags([...new Set(loadedTags)]);
+      setBookmarkTags([...new Set([...tags, ...loadedTags])]); 
     };
 
     fetchTags();
