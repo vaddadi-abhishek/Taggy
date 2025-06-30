@@ -14,6 +14,7 @@ import { MaterialIcons, Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useTheme } from "@/src/context/ThemeContext";
+import eventBus from "@/src/utils/eventBus"; 
 
 const SettingsScreen = () => {
   const { theme, mode, setThemeMode } = useTheme();
@@ -59,6 +60,7 @@ const SettingsScreen = () => {
           try {
             await AsyncStorage.multiRemove(["user_tags", "bookmark_tag_map"]);
             DeviceEventEmitter.emit("globalTagsCleared");
+            eventBus.emit("refreshFeed");
             Alert.alert("Success", "Global manual tags cleared.");
           } catch (error) {
             console.error("Failed to clear global tags:", error);

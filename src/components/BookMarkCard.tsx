@@ -21,6 +21,7 @@ import {
 } from "@/src/utils/tagStorage";
 import { getAutoplaySetting } from "@/src/utils/videoAutoPlay";
 import { useTheme } from "@/src/context/ThemeContext"; // 👈 your ThemeContext
+import Toast from 'react-native-toast-message';
 
 type Props = {
   image?: string;
@@ -77,7 +78,7 @@ export default function BookmarkCard({
   useEffect(() => {
     const fetchTags = async () => {
       const loadedTags = await getTagsForBookmark(title);
-      setBookmarkTags([...new Set([...tags, ...loadedTags])]); 
+      setBookmarkTags([...new Set([...tags, ...loadedTags])]);
     };
 
     fetchTags();
@@ -226,7 +227,13 @@ export default function BookmarkCard({
         onSubmit={async (newTag) => {
           if (!bookmarkTags.includes(newTag)) {
             await addTagToBookmark(title, newTag);
-            setBookmarkTags((prev) => [newTag, ...prev]);
+            setBookmarkTags((prev) => [...new Set([newTag, ...prev])]);
+            Toast.show({
+              type: 'success',
+              text1: 'Tag added!',
+              position: 'bottom',
+              visibilityTime: 1500,
+            });
           }
         }}
       />

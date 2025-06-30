@@ -18,7 +18,8 @@ import {
   deleteGlobalTag,
   updateGlobalTag,
 } from "@/src/utils/tagStorage";
-import { useTheme } from "@/src/context/ThemeContext"; // ✅ custom theme context
+import { useTheme } from "@/src/context/ThemeContext";
+import eventBus from "@/src/utils/eventBus";
 
 export default function TagsScreen() {
   const theme = useTheme();
@@ -54,6 +55,9 @@ export default function TagsScreen() {
 
   useEffect(() => {
     loadTags();
+
+    const unsubscribe = eventBus.on("refreshFeed", loadTags);
+    return () => unsubscribe();
   }, []);
 
   const handleAddPress = async () => {

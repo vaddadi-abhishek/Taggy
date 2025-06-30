@@ -1,4 +1,3 @@
-import globalStyles from '@/src/styles/globalStyles';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -40,14 +39,14 @@ export default function IndexScreen() {
 
   if (loading) {
     return (
-      <View style={[globalStyles.container, styles.center]}>
+      <View style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" color="#3573D1" />
       </View>
     );
   }
 
   return (
-    <View style={globalStyles.container}>
+    <View style={styles.container}>
       <View style={styles.viewText}>
         <Text style={styles.welcomeText}>Let's</Text>
         <Text style={styles.welcomeText}>Go</Text>
@@ -72,6 +71,10 @@ export default function IndexScreen() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+
   viewText: {
     flex: 1,
     justifyContent: 'center',

@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "@/src/context/ThemeContext";
+import eventBus from "@/src/utils/eventBus";
 
 interface Props {
   visible: boolean;
