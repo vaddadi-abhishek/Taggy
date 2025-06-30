@@ -16,6 +16,7 @@ import {
   ScrollView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTheme } from "@/src/context/ThemeContext";
 
 interface Props {
   visible: boolean;
@@ -43,11 +44,12 @@ export default function FloatingTagModal({
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [storedTags, setStoredTags] = useState<string[]>([]);
+  const { navigationTheme } = useTheme();
+  const { colors, dark } = navigationTheme;
 
   const getSafePosition = (x: number, y: number) => {
     let safeX = x - MODAL_WIDTH / 2;
     let safeY = y + 10;
-
     if (safeX + MODAL_WIDTH > SCREEN_WIDTH - 10) {
       safeX = SCREEN_WIDTH - MODAL_WIDTH - 10;
     }
@@ -61,7 +63,6 @@ export default function FloatingTagModal({
     if (safeY < 10) {
       safeY = 10;
     }
-
     return { x: safeX, y: safeY };
   };
 
@@ -186,6 +187,7 @@ export default function FloatingTagModal({
                 {
                   top: safePosition.y,
                   left: safePosition.x,
+                  backgroundColor: colors.card,
                   transform: [{ translateY: pan.y }],
                 },
               ]}
@@ -193,13 +195,22 @@ export default function FloatingTagModal({
             >
               <TouchableWithoutFeedback onPress={() => {}}>
                 <View>
-                  <Text style={styles.label}>Create new tag</Text>
+                  <Text style={[styles.label, { color: colors.text }]}>
+                    Create new tag
+                  </Text>
                   <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
                     <TextInput
                       ref={inputRef}
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: dark ? "#1c1c1e" : "#fff",
+                          color: colors.text,
+                          borderColor: dark ? "#444" : "#ddd",
+                        },
+                      ]}
                       placeholder="Enter tag..."
-                      placeholderTextColor="#aaa"
+                      placeholderTextColor={dark ? "#777" : "#aaa"}
                       onChangeText={(text) => (tagValue.current = text)}
                       onSubmitEditing={handleSubmit}
                     />
@@ -210,7 +221,11 @@ export default function FloatingTagModal({
 
                   {storedTags.length > 0 && (
                     <>
-                      <Text style={styles.existingLabel}>Your tags</Text>
+                      <Text
+                        style={[styles.existingLabel, { color: colors.text, marginTop: 10 }]}
+                      >
+                        Your tags
+                      </Text>
                       <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
@@ -219,13 +234,25 @@ export default function FloatingTagModal({
                         {storedTags.map((tag) => (
                           <TouchableOpacity
                             key={tag}
-                            style={styles.tagChip}
+                            style={[
+                              styles.tagChip,
+                              {
+                                backgroundColor: dark ? "#333" : "#e5e7eb",
+                              },
+                            ]}
                             onPress={() => {
                               onSubmit(tag);
                               onClose();
                             }}
                           >
-                            <Text style={styles.tagText}>{tag}</Text>
+                            <Text
+                              style={[
+                                styles.tagText,
+                                { color: dark ? "#ddd" : "#333" },
+                              ]}
+                            >
+                              {tag}
+                            </Text>
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
@@ -252,7 +279,6 @@ const styles = StyleSheet.create({
   modalBox: {
     position: "absolute",
     width: MODAL_WIDTH,
-    backgroundColor: "#fff",
     padding: 12,
     borderRadius: 12,
     shadowColor: "#000",
@@ -265,11 +291,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginBottom: 8,
-    color: "#333",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -286,10 +310,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   existingLabel: {
-    marginTop: 10,
     fontSize: 13,
     fontWeight: "600",
-    color: "#555",
   },
   tagList: {
     flexDirection: "row",
@@ -297,7 +319,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   tagChip: {
-    backgroundColor: "#e5e7eb",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
@@ -306,6 +327,5 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#333",
   },
 });
