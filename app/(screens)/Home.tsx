@@ -105,9 +105,8 @@ export default function HomeScreen() {
         setAfter(null);
       }
 
-      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${
-        afterParam ? `&after=${afterParam}` : ""
-      }`;
+      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${afterParam ? `&after=${afterParam}` : ""
+        }`;
 
       const response = await fetch(url, {
         headers: {
@@ -229,13 +228,25 @@ export default function HomeScreen() {
     }, 300),
     [bookmarks]
   );
-
+  
   useEffect(() => {
+    // Initial load on mount
     onRefresh();
-    const refreshListener = () => loadSavedPosts(null);
+
+    const refreshListener = async () => {
+      console.log("↻ Feed refresh triggered by tab tap");
+      setRefreshing(true);
+      await loadSavedPosts(null);
+      setRefreshing(false);
+    };
+
     eventBus.on("refreshFeed", refreshListener);
-    return () => eventBus.off("refreshFeed", refreshListener);
+
+    return () => {
+      eventBus.off("refreshFeed", refreshListener);
+    };
   }, []);
+
 
   useEffect(() => {
     if (!searchText.trim()) setFilteredBookmarks(bookmarks);
