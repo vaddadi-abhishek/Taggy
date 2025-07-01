@@ -5,7 +5,6 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   ActivityIndicator,
   Animated,
-  FlatList,
   RefreshControl,
   StyleSheet,
   Text,
@@ -17,8 +16,7 @@ import debounce from "lodash.debounce";
 import { getTagsForBookmark } from "@/src/utils/tagStorage";
 import { refreshAccessToken } from "@/src/utils/RedditAuth";
 import { useTheme } from "@/src/context/ThemeContext"; // ✅ Custom theme
-
-const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+import { FlashList } from "@shopify/flash-list";
 
 const AnimatedBookmarkItem = ({ item, index, isVisible }: { item: any; index: number; isVisible: boolean; }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -296,7 +294,7 @@ export default function HomeScreen() {
 
       {error && <Text style={[styles.error, { color: colors.notification }]}>{error}</Text>}
 
-      <AnimatedFlatList
+      <FlashList
         data={filteredBookmarks}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
@@ -316,6 +314,7 @@ export default function HomeScreen() {
           loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null
         }
         contentContainerStyle={{ paddingBottom: 80 }}
+        estimatedItemSize={450}
       />
 
     </View>
