@@ -321,7 +321,15 @@ export default function BookmarkCard({
         </Pressable>
 
         <Pressable onPress={handleCardPress} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
-          <Text style={[styles.caption, { color: colors.text }]}>
+          <Text
+            style={[
+              styles.caption,
+              {
+                color: caption === "No description." ? 'gray' : colors.text,
+                fontStyle: "italic",
+              },
+            ]}
+          >
             {caption}
           </Text>
         </Pressable>

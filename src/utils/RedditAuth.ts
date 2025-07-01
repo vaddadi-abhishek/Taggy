@@ -8,7 +8,6 @@ const { AUTHORIZATION_ENDPOINT, TOKEN_ENDPOINT, REDDIT_CLIENT_ID } = Constants.e
   
 console.log([AUTHORIZATION_ENDPOINT, TOKEN_ENDPOINT, REDDIT_CLIENT_ID])
 
-
 const printAsyncStorage = async () => {
   try {
     const keys = await AsyncStorage.getAllKeys();

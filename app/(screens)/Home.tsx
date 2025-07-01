@@ -14,9 +14,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import eventBus from "@/src/utils/eventBus";
 import debounce from "lodash.debounce";
 import { getTagsForBookmark } from "@/src/utils/tagStorage";
-import { refreshAccessToken } from "@/src/utils/RedditAuth";
 import { useTheme } from "@/src/context/ThemeContext";
 import { FlashList, ViewToken } from "@shopify/flash-list";
+import fetchRedditPosts from "@/src/utils/reddit/fetchRedditPosts";
 
 const AnimatedBookmarkItem = ({
   item,
@@ -101,130 +101,31 @@ export default function HomeScreen() {
 
   const loadSavedPosts = async (afterParam: string | null = null) => {
     try {
-      let accessToken = await AsyncStorage.getItem("reddit_token");
-      if (!accessToken) {
-        const refreshed = await refreshAccessToken();
-        if (refreshed) {
-          accessToken = await AsyncStorage.getItem("reddit_token");
-        } else {
-          setError("Please, Connect Your Reddit Account 😄");
-          setBookmarks([]);
-          setFilteredBookmarks([]);
-          return;
-        }
-      }
-
-      let currentUsername = username;
-      if (!currentUsername) {
-        currentUsername = await fetchUsername(accessToken);
-        setUsername(currentUsername);
-      }
-
-      if (!afterParam) {
-        setBookmarks([]);
-        setAfter(null);
-      }
-
-      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${
-        afterParam ? `&after=${afterParam}` : ""
-      }`;
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "User-Agent": "taggy-app/1.0 (by u/South_Pencil)",
-        },
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        console.error("Reddit fetch failed:", errData);
-        setError("Failed to fetch saved posts.");
-        return;
-      }
-
-      const json = await response.json();
-      const posts = json.data.children;
-      const newAfter = json.data.after;
-
-      const parsed = posts.map((item: any) => {
-        const post = item.data;
-        const kind = item.kind;
-        let isVideo = false;
-        let videoUrl: string | null = null;
-        let isRedditGif = false;
-
-        if (post.is_video && post.media?.reddit_video) {
-          isVideo = true;
-          videoUrl =
-            post.media.reddit_video.hls_url ||
-            post.media.reddit_video.fallback_url ||
-            post.media.reddit_video.dash_url;
-        } else if (post.preview?.reddit_video_preview?.is_gif) {
-          isVideo = true;
-          isRedditGif = true;
-          videoUrl = post.preview.reddit_video_preview.fallback_url;
-        }
-
-        let imageUrls: string[] = [];
-
-        if (post.is_gallery && post.gallery_data && post.media_metadata) {
-          imageUrls = post.gallery_data.items
-            .map((item: any) =>
-              post.media_metadata[item.media_id]?.s?.u?.replaceAll("&amp;", "&")
-            )
-            .filter(Boolean);
-        } else if (post.preview?.images?.[0]?.source?.url) {
-          imageUrls = [post.preview.images[0].source.url.replaceAll("&amp;", "&")];
-        }
-
-        const permalink = post.permalink
-          ? `https://www.reddit.com${post.permalink}`
-          : post.link_permalink || post.link_url || null;
-
-        if (kind === "t1") {
-          return {
-            id: post.name,
-            images: undefined,
-            video: null,
-            isRedditGif: false,
-            source: "reddit",
-            title: post.link_title || "Comment on Reddit",
-            caption: post.body?.substring(0, 150) || "No comment text.",
-            tags: ["reddit", post.subreddit || "unknown"],
-            url: permalink,
-          };
-        } else {
-          return {
-            id: post.name,
-            images: !isVideo ? imageUrls : undefined,
-            video: isVideo ? videoUrl : null,
-            isRedditGif,
-            source: "reddit",
-            title: post.title || post.link_title || "Untitled",
-            caption: post.selftext?.substring(0, 150) || "No description.",
-            tags: ["reddit", post.subreddit],
-            url: permalink,
-          };
-        }
-      });
+      const { posts, after: newAfter, username: uname } = await fetchRedditPosts(afterParam, username);
+      setUsername(uname);
 
       if (afterParam) {
         setBookmarks((prev) => {
-          const updated = [...prev, ...parsed];
+          const updated = [...prev, ...posts];
           handleSearchDebounced(searchText, updated);
           return updated;
         });
       } else {
-        setBookmarks(parsed);
-        handleSearchDebounced(searchText, parsed);
+        setBookmarks(posts);
+        handleSearchDebounced(searchText, posts);
       }
 
       setAfter(newAfter);
       setError(null);
-    } catch (err) {
-      console.error("Load error:", err);
-      setError("Could not fetch Reddit data.");
+    } catch (err: any) {
+      if (err.message === "NO_AUTH") {
+        setError("Please, Connect Your Reddit Account 😄");
+        setBookmarks([]);
+        setFilteredBookmarks([]);
+      } else {
+        console.error("Load error:", err);
+        setError("Could not fetch Reddit data.");
+      }
     }
   };
 
