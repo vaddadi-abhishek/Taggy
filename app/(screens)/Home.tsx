@@ -20,7 +20,7 @@ import { useTheme } from "@/src/context/ThemeContext"; // ✅ Custom theme
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
-const AnimatedBookmarkItem = ({ item, index }: { item: any; index: number }) => {
+const AnimatedBookmarkItem = ({ item, index, isVisible }: { item: any; index: number; isVisible: boolean; }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(10)).current;
 
@@ -52,6 +52,7 @@ const AnimatedBookmarkItem = ({ item, index }: { item: any; index: number }) => 
         caption={item.caption}
         tags={item.tags}
         url={item.url}
+        isVisible={isVisible}
       />
     </Animated.View>
   );
@@ -68,6 +69,17 @@ export default function HomeScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
+  const [visibleIds, setVisibleIds] = useState<string[]>([]);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    const ids = viewableItems.map((vi: any) => vi.item.id);
+    setVisibleIds(ids);
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 60, // Trigger when 60% is visible
+  }).current;
+
 
   const fetchUsername = async (token: string) => {
     const res = await fetch("https://oauth.reddit.com/api/v1/me", {
@@ -130,6 +142,7 @@ export default function HomeScreen() {
 
       const parsed = posts.map((item: any, index: number) => {
         const post = item.data;
+        const kind = item.kind;
         let isVideo = false;
         let videoUrl: string | null = null;
         let isRedditGif = false;
@@ -146,8 +159,6 @@ export default function HomeScreen() {
           videoUrl = post.preview.reddit_video_preview.fallback_url;
         }
 
-
-        // ✅ Handle image(s)
         let imageUrls: string[] = [];
 
         if (post.is_gallery && post.gallery_data && post.media_metadata) {
@@ -158,49 +169,39 @@ export default function HomeScreen() {
           imageUrls = [post.preview.images[0].source.url.replaceAll("&amp;", "&")];
         }
 
-        const permalink = post.permalink ? `https://www.reddit.com${post.permalink}` : null;
+        const permalink = post.permalink
+          ? `https://www.reddit.com${post.permalink}`
+          : post.link_permalink || post.link_url || null;
 
-        if (post.title) {
+        if (kind === "t1") {
+          // It's a comment
           return {
-            id: post.id || index,
-            images: !isVideo ? imageUrls : undefined,
-            video: isVideo ? videoUrl : null,
-            isRedditGif,
+            id: post.name,
+            images: undefined,
+            video: null,
+            isRedditGif: false,
             source: "reddit",
-            title: post.title || "Untitled",
-            caption: post.selftext?.substring(0, 100) || "No description.",
-            tags: ["reddit", post.subreddit],
+            title: post.link_title || "Comment on Reddit",
+            caption: post.body?.substring(0, 150) || "No comment text.",
+            tags: ["reddit", post.subreddit || "unknown"],
             url: permalink,
           };
-
-        } else if (post.body) {
-          return {
-            id: post.id || index,
-            images: !isVideo ? imageUrls : undefined,
-            video: isVideo ? videoUrl : null,
-            isRedditGif,
-            source: "reddit",
-            title: post.title || "Untitled",
-            caption: post.selftext?.substring(0, 100) || "No description.",
-            tags: ["reddit", post.subreddit],
-            url: permalink,
-          };
-
         } else {
+          // It's a post
           return {
-            id: post.id || index,
+            id: post.name,
             images: !isVideo ? imageUrls : undefined,
             video: isVideo ? videoUrl : null,
             isRedditGif,
             source: "reddit",
-            title: post.title || "Untitled",
-            caption: post.selftext?.substring(0, 100) || "No description.",
+            title: post.title || post.link_title || "Untitled",
+            caption: post.selftext?.substring(0, 150) || "No description.",
             tags: ["reddit", post.subreddit],
             url: permalink,
           };
-
         }
       });
+
 
       if (afterParam) {
         setBookmarks((prev) => {
@@ -297,10 +298,14 @@ export default function HomeScreen() {
 
       <AnimatedFlatList
         data={filteredBookmarks}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item, index }) => <AnimatedBookmarkItem item={item} index={index} />}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item, index }) => (
+          <AnimatedBookmarkItem item={item} index={index} isVisible={visibleIds.includes(item.id)} />
+        )}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           !refreshing && searchText.trim().length > 0 ? (
@@ -312,6 +317,7 @@ export default function HomeScreen() {
         }
         contentContainerStyle={{ paddingBottom: 80 }}
       />
+
     </View>
   );
 }

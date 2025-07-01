@@ -33,6 +33,7 @@ type Props = {
   caption: string;
   tags: string[];
   url?: string;
+  isVisible: boolean;
 };
 
 const platformIcons: Record<string, JSX.Element> = {
@@ -75,6 +76,7 @@ export default function BookmarkCard({
   caption,
   tags,
   url,
+  isVisible,
 }: Props) {
   const { navigationTheme } = useTheme(); // 👈 get theme
   const colors = navigationTheme.colors;
@@ -117,10 +119,15 @@ export default function BookmarkCard({
   }, []);
 
   useEffect(() => {
-    if (autoplay && player) {
+    if (!player || autoplay === null) return;
+
+    if (isVisible && autoplay) {
       player.play();
+    } else {
+      player.pause();
     }
-  }, [autoplay, player]);
+  }, [isVisible, autoplay, player]);
+
 
   useEffect(() => {
     const fetchTags = async () => {
