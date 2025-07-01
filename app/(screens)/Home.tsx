@@ -15,10 +15,18 @@ import eventBus from "@/src/utils/eventBus";
 import debounce from "lodash.debounce";
 import { getTagsForBookmark } from "@/src/utils/tagStorage";
 import { refreshAccessToken } from "@/src/utils/RedditAuth";
-import { useTheme } from "@/src/context/ThemeContext"; // ✅ Custom theme
-import { FlashList } from "@shopify/flash-list";
+import { useTheme } from "@/src/context/ThemeContext";
+import { FlashList, ViewToken } from "@shopify/flash-list";
 
-const AnimatedBookmarkItem = ({ item, index, isVisible }: { item: any; index: number; isVisible: boolean; }) => {
+const AnimatedBookmarkItem = ({
+  item,
+  index,
+  isVisible,
+}: {
+  item: any;
+  index: number;
+  isVisible: boolean;
+}) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(10)).current;
 
@@ -56,9 +64,8 @@ const AnimatedBookmarkItem = ({ item, index, isVisible }: { item: any; index: nu
   );
 };
 
-
 export default function HomeScreen() {
-  const { colors } = useTheme().navigationTheme; // ✅ Dynamic theme
+  const { colors } = useTheme().navigationTheme;
   const [bookmarks, setBookmarks] = useState<any[]>([]);
   const [filteredBookmarks, setFilteredBookmarks] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -69,15 +76,16 @@ export default function HomeScreen() {
   const [searchText, setSearchText] = useState("");
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    const ids = viewableItems.map((vi: any) => vi.item.id);
-    setVisibleIds(ids);
-  }).current;
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const ids = viewableItems.map((vi) => vi.item.id);
+      setVisibleIds(ids);
+    }
+  ).current;
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 60, // Trigger when 60% is visible
+    itemVisiblePercentThreshold: 60,
   }).current;
-
 
   const fetchUsername = async (token: string) => {
     const res = await fetch("https://oauth.reddit.com/api/v1/me", {
@@ -117,8 +125,9 @@ export default function HomeScreen() {
         setAfter(null);
       }
 
-      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${afterParam ? `&after=${afterParam}` : ""
-        }`;
+      const url = `https://oauth.reddit.com/user/${currentUsername}/saved?limit=25${
+        afterParam ? `&after=${afterParam}` : ""
+      }`;
 
       const response = await fetch(url, {
         headers: {
@@ -138,7 +147,7 @@ export default function HomeScreen() {
       const posts = json.data.children;
       const newAfter = json.data.after;
 
-      const parsed = posts.map((item: any, index: number) => {
+      const parsed = posts.map((item: any) => {
         const post = item.data;
         const kind = item.kind;
         let isVideo = false;
@@ -161,7 +170,9 @@ export default function HomeScreen() {
 
         if (post.is_gallery && post.gallery_data && post.media_metadata) {
           imageUrls = post.gallery_data.items
-            .map((item: any) => post.media_metadata[item.media_id]?.s?.u?.replaceAll("&amp;", "&"))
+            .map((item: any) =>
+              post.media_metadata[item.media_id]?.s?.u?.replaceAll("&amp;", "&")
+            )
             .filter(Boolean);
         } else if (post.preview?.images?.[0]?.source?.url) {
           imageUrls = [post.preview.images[0].source.url.replaceAll("&amp;", "&")];
@@ -172,7 +183,6 @@ export default function HomeScreen() {
           : post.link_permalink || post.link_url || null;
 
         if (kind === "t1") {
-          // It's a comment
           return {
             id: post.name,
             images: undefined,
@@ -185,7 +195,6 @@ export default function HomeScreen() {
             url: permalink,
           };
         } else {
-          // It's a post
           return {
             id: post.name,
             images: !isVideo ? imageUrls : undefined,
@@ -199,7 +208,6 @@ export default function HomeScreen() {
           };
         }
       });
-
 
       if (afterParam) {
         setBookmarks((prev) => {
@@ -259,9 +267,7 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    // Initial load on mount
     onRefresh();
-
     const refreshListener = async () => {
       console.log("↻ Feed refresh triggered by tab tap");
       setRefreshing(true);
@@ -270,12 +276,10 @@ export default function HomeScreen() {
     };
 
     eventBus.on("refreshFeed", refreshListener);
-
     return () => {
       eventBus.off("refreshFeed", refreshListener);
     };
   }, []);
-
 
   useEffect(() => {
     if (!searchText.trim()) setFilteredBookmarks(bookmarks);
@@ -302,6 +306,9 @@ export default function HomeScreen() {
         )}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
+        estimatedItemSize={300}
+        extraData={visibleIds}
+        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -314,9 +321,7 @@ export default function HomeScreen() {
           loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null
         }
         contentContainerStyle={{ paddingBottom: 80 }}
-        estimatedItemSize={450}
       />
-
     </View>
   );
 }
