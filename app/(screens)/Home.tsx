@@ -44,8 +44,9 @@ const AnimatedBookmarkItem = ({ item, index }: { item: any; index: number }) => 
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
       <BookmarkCard
-        image={item.image}
+        images={item.images}
         video={item.video}
+        isRedditGif={item.isRedditGif}
         source={item.source}
         title={item.title}
         caption={item.caption}
@@ -55,6 +56,7 @@ const AnimatedBookmarkItem = ({ item, index }: { item: any; index: number }) => 
     </Animated.View>
   );
 };
+
 
 export default function HomeScreen() {
   const { colors } = useTheme().navigationTheme; // ✅ Dynamic theme
@@ -128,47 +130,75 @@ export default function HomeScreen() {
 
       const parsed = posts.map((item: any, index: number) => {
         const post = item.data;
-        const isVideo = post.is_video && post.media?.reddit_video;
-        const videoUrl =
-          post.media?.reddit_video?.hls_url ||
-          post.media?.reddit_video?.fallback_url ||
-          post.media?.reddit_video?.dash_url;
-        const imageUrl = post.preview?.images?.[0]?.source?.url?.replaceAll("&amp;", "&");
+        let isVideo = false;
+        let videoUrl: string | null = null;
+        let isRedditGif = false;
+
+        if (post.is_video && post.media?.reddit_video) {
+          isVideo = true;
+          videoUrl =
+            post.media.reddit_video.hls_url ||
+            post.media.reddit_video.fallback_url ||
+            post.media.reddit_video.dash_url;
+        } else if (post.preview?.reddit_video_preview?.is_gif) {
+          isVideo = true;
+          isRedditGif = true;
+          videoUrl = post.preview.reddit_video_preview.fallback_url;
+        }
+
+
+        // ✅ Handle image(s)
+        let imageUrls: string[] = [];
+
+        if (post.is_gallery && post.gallery_data && post.media_metadata) {
+          imageUrls = post.gallery_data.items
+            .map((item: any) => post.media_metadata[item.media_id]?.s?.u?.replaceAll("&amp;", "&"))
+            .filter(Boolean);
+        } else if (post.preview?.images?.[0]?.source?.url) {
+          imageUrls = [post.preview.images[0].source.url.replaceAll("&amp;", "&")];
+        }
+
         const permalink = post.permalink ? `https://www.reddit.com${post.permalink}` : null;
 
         if (post.title) {
           return {
             id: post.id || index,
-            image: !isVideo ? imageUrl : undefined,
+            images: !isVideo ? imageUrls : undefined,
             video: isVideo ? videoUrl : null,
+            isRedditGif,
             source: "reddit",
             title: post.title || "Untitled",
             caption: post.selftext?.substring(0, 100) || "No description.",
             tags: ["reddit", post.subreddit],
             url: permalink,
           };
+
         } else if (post.body) {
           return {
             id: post.id || index,
-            image: !isVideo ? imageUrl : undefined,
+            images: !isVideo ? imageUrls : undefined,
             video: isVideo ? videoUrl : null,
+            isRedditGif,
             source: "reddit",
-            title: `Comment on r/${post.subreddit}`,
-            caption: post.body.substring(0, 100),
+            title: post.title || "Untitled",
+            caption: post.selftext?.substring(0, 100) || "No description.",
             tags: ["reddit", post.subreddit],
             url: permalink,
           };
+
         } else {
           return {
             id: post.id || index,
-            image: !isVideo ? imageUrl : undefined,
+            images: !isVideo ? imageUrls : undefined,
             video: isVideo ? videoUrl : null,
+            isRedditGif,
             source: "reddit",
-            title: "Unknown saved item",
-            caption: "No description available.",
-            tags: ["reddit"],
+            title: post.title || "Untitled",
+            caption: post.selftext?.substring(0, 100) || "No description.",
+            tags: ["reddit", post.subreddit],
             url: permalink,
           };
+
         }
       });
 
@@ -228,7 +258,7 @@ export default function HomeScreen() {
     }, 300),
     [bookmarks]
   );
-  
+
   useEffect(() => {
     // Initial load on mount
     onRefresh();

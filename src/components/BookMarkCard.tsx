@@ -1,5 +1,4 @@
 import FloatingTagModal from "@/src/components/FloatingTagModal";
-import { FontAwesome6 } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -12,7 +11,9 @@ import {
   View,
   useWindowDimensions,
   Pressable,
+  Animated,
   DeviceEventEmitter,
+  ActivityIndicator,
 } from "react-native";
 import {
   addTagToBookmark,
@@ -20,12 +21,13 @@ import {
   removeTagFromBookmark,
 } from "@/src/utils/tagStorage";
 import { getAutoplaySetting } from "@/src/utils/videoAutoPlay";
-import { useTheme } from "@/src/context/ThemeContext"; // 👈 your ThemeContext
+import { useTheme } from "@/src/context/ThemeContext";
 import Toast from 'react-native-toast-message';
 
 type Props = {
-  image?: string;
+  images?: string[];
   video?: string;
+  isRedditGif?: boolean;
   source: "instagram" | "reddit" | "x" | "youtube";
   title: string;
   caption: string;
@@ -65,8 +67,9 @@ const platformIcons: Record<string, JSX.Element> = {
 };
 
 export default function BookmarkCard({
-  image,
+  images,
   video,
+  isRedditGif,
   source,
   title,
   caption,
@@ -75,7 +78,7 @@ export default function BookmarkCard({
 }: Props) {
   const { navigationTheme } = useTheme(); // 👈 get theme
   const colors = navigationTheme.colors;
-
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const [showModal, setShowModal] = useState(false);
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
   const aiTagBadgeRef = useRef<View>(null);
@@ -83,6 +86,26 @@ export default function BookmarkCard({
   const [mediaHeight, setMediaHeight] = useState(200);
   const [bookmarkTags, setBookmarkTags] = useState<string[]>(tags);
   const [autoplay, setAutoplay] = useState<boolean | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [imageHeights, setImageHeights] = useState<number[]>([]);
+
+  const handleScrollTo = (index: number) => {
+    if (images && index >= 0 && index < images.length) {
+      // Direction: 1 for forward, -1 for backward
+      const direction = index > activeIndex ? 1 : -1;
+
+      // Reset and animate
+      slideAnim.setValue(direction * screenWidth);
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+
+      setActiveIndex(index);
+    }
+  };
+
 
   const player = useVideoPlayer(video || "", (p) => {
     p.loop = true;
@@ -112,17 +135,26 @@ export default function BookmarkCard({
   }, [title]);
 
   useEffect(() => {
-    if (image) {
-      Image.getSize(
-        image,
-        (width, height) => {
-          const aspectRatio = Math.max(0.4, Math.min(1.0, height / width));
-          setMediaHeight(screenWidth * aspectRatio);
-        },
-        () => setMediaHeight(200)
-      );
-    }
-  }, [image, screenWidth]);
+    if (!images || images.length === 0) return;
+
+    const promises = images.map((uri) => {
+      return new Promise<number>((resolve) => {
+        Image.getSize(
+          uri,
+          (w, h) => {
+            const ratio = h / w;
+            const scaledHeight = Math.min(screenWidth * ratio, 450); // Max height cap
+            resolve(scaledHeight);
+          },
+          () => resolve(200) // fallback height
+        );
+      });
+    });
+
+    Promise.all(promises).then(setImageHeights);
+  }, [images, screenWidth]);
+
+
 
   useEffect(() => {
     getTagsForBookmark(title).then((loadedTags) => {
@@ -146,7 +178,36 @@ export default function BookmarkCard({
   };
 
   const renderMedia = () => {
-    if (video && autoplay !== null) {
+    const isGif = isRedditGif || (typeof video === "string" && /v\.redd\.it.*\.mp4/.test(video));
+    const isVideo = video && !isRedditGif;
+    const hasImages = images && images.length > 0;
+
+    if (isGif && autoplay !== null) {
+      return (
+        <View>
+          <VideoView
+            player={player}
+            style={[styles.media, { height: mediaHeight }]}
+            isMuted
+            allowsFullscreen={false}
+            useNativeControls={false}
+            shouldPlay={autoplay}
+            style={[
+              styles.media,
+              {
+                height: mediaHeight,
+                backgroundColor: navigationTheme.dark ? "#1a1a1a" : "#f2f2f2",
+              },
+            ]}
+          />
+          <View style={[styles.iconOverlay, { backgroundColor: colors.card }]}>
+            {platformIcons[source]}
+          </View>
+        </View>
+      );
+    }
+
+    if (isVideo && autoplay !== null) {
       return (
         <View>
           <VideoView
@@ -158,10 +219,9 @@ export default function BookmarkCard({
                 backgroundColor: navigationTheme.dark ? "#1a1a1a" : "#f2f2f2",
               },
             ]}
+            isMuted={false}
             allowsFullscreen
             allowsPictureInPicture
-            isMuted={false}
-            volume={1.0}
             useNativeControls
             shouldPlay={autoplay}
           />
@@ -170,30 +230,76 @@ export default function BookmarkCard({
           </View>
         </View>
       );
-    } else if (image) {
+    }
+
+    if (hasImages) {
+      if (imageHeights.length !== images.length) {
+        return (
+          <View
+            style={{
+              width: screenWidth,
+              height: 200,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        );
+      }
+
+      const maxImageHeight = Math.max(...imageHeights);
+      const currentImage = images[activeIndex];
+
       return (
-        <Pressable>
-          <Image
-            source={{ uri: image }}
-            style={[
-              styles.media,
-              {
-                height: mediaHeight,
+        <View style={{ position: "relative", height: maxImageHeight }}>
+          <Animated.View
+            style={{
+              width: screenWidth,
+              height: maxImageHeight,
+              transform: [{ translateX: slideAnim }],
+            }}
+          >
+            <Image
+              source={{ uri: currentImage }}
+              resizeMode="cover"
+              style={{
+                width: screenWidth,
+                height: maxImageHeight,
                 backgroundColor: navigationTheme.dark ? "#1a1a1a" : "#f2f2f2",
-              },
-            ]}
-            resizeMode="contain"
-          />
+              }}
+            />
+          </Animated.View>
+
+          {images.length > 1 && activeIndex > 0 && (
+            <TouchableOpacity
+              onPress={() => handleScrollTo(activeIndex - 1)}
+              style={[styles.scrollButton, { left: 10 }]}
+            >
+              <Text style={styles.scrollButtonText}>‹</Text>
+            </TouchableOpacity>
+          )}
+          {images.length > 1 && activeIndex < images.length - 1 && (
+            <TouchableOpacity
+              onPress={() => handleScrollTo(activeIndex + 1)}
+              style={[styles.scrollButton, { right: 10 }]}
+            >
+              <Text style={styles.scrollButtonText}>›</Text>
+            </TouchableOpacity>
+          )}
+
           <View style={[styles.iconOverlay, { backgroundColor: colors.card }]}>
             {platformIcons[source]}
           </View>
-        </Pressable>
+        </View>
       );
     }
+
     return null;
   };
 
-  const shouldCardBeTappable = !video && (!image || image.length > 0);
+
+  const shouldCardBeTappable = !video && (!images || images.length > 0);
 
   return (
     <Pressable
@@ -331,5 +437,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     color: "#fff",
+  },
+  scrollButton: {
+    position: "absolute",
+    top: "50%",
+    zIndex: 10,
+    padding: 10,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 20,
+    transform: [{ translateY: -20 }],
+  },
+  scrollButtonText: {
+    color: "white",
+    fontSize: 24,
+    fontWeight: "bold",
   },
 });
