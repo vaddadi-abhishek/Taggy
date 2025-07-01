@@ -34,10 +34,34 @@ type Props = {
 };
 
 const platformIcons: Record<string, JSX.Element> = {
-  instagram: <FontAwesome6 name="instagram" size={18} color="#E1306C" />,
-  reddit: <FontAwesome6 name="reddit" size={18} color="#FF4500" />,
-  x: <FontAwesome6 name="x-twitter" size={18} color="#000" />,
-  youtube: <FontAwesome6 name="youtube" size={18} color="#FF0000" />,
+  instagram: (
+    <Image
+      source={{ uri: "https://img.icons8.com/?size=100&id=Xy10Jcu1L2Su&format=png&color=000000" }}
+      style={{ width: 22, height: 22 }}
+      resizeMode="contain"
+    />
+  ),
+  reddit: (
+    <Image
+      source={{ uri: "https://img.icons8.com/?size=100&id=gxDo9YXCsacn&format=png&color=000000" }}
+      style={{ width: 22, height: 22 }}
+      resizeMode="contain"
+    />
+  ),
+  x: (
+    <Image
+      source={{ uri: "https://img.icons8.com/?size=100&id=phOKFKYpe00C&format=png&color=ffffff" }}
+      style={{ width: 22, height: 22 }}
+      resizeMode="contain"
+    />
+  ),
+  youtube: (
+    <Image
+      source={{ uri: "https://img.icons8.com/?size=100&id=qLVB1tIe9Ts9&format=png&color=000000" }}
+      style={{ width: 22, height: 22 }}
+      resizeMode="contain"
+    />
+  ),
 };
 
 export default function BookmarkCard({
@@ -185,7 +209,7 @@ export default function BookmarkCard({
           {bookmarkTags.map((tag, index) => (
             <TouchableOpacity
               key={index}
-              style={[styles.tagBadge, { backgroundColor: colors.border }]}
+              style={styles.tagBadge}
               onLongPress={() => {
                 Alert.alert(
                   "Remove Tag",
@@ -205,7 +229,7 @@ export default function BookmarkCard({
               }}
               activeOpacity={0.8}
             >
-              <Text style={[styles.tagText, { color: colors.text }]}>{tag}</Text>
+              <Text style={styles.tagText}>{tag}</Text>
             </TouchableOpacity>
           ))}
 
@@ -288,9 +312,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    backgroundColor: "grey",
   },
   aiTagBadge: {
-    backgroundColor: "#fde68a",
+    backgroundColor: "royalblue",
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -298,5 +323,6 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 12,
     fontWeight: "500",
+    color: "#fff",
   },
 });
