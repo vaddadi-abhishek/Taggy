@@ -172,7 +172,7 @@ export default function BookmarkCard({
       );
     } else if (image) {
       return (
-        <Pressable onPress={handleCardPress}>
+        <Pressable>
           <Image
             source={{ uri: image }}
             style={[
@@ -197,14 +197,21 @@ export default function BookmarkCard({
 
   return (
     <Pressable
-      onPress={shouldCardBeTappable ? handleCardPress : undefined}
       style={[styles.card, { backgroundColor: navigationTheme.dark ? "#2a2a2a" : colors.card, }]}
     >
       {renderMedia()}
       <View style={styles.textContent}>
-        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-        <Text style={[styles.caption, { color: colors.text }]}>{caption}</Text>
+        <Pressable onPress={handleCardPress} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {title}
+          </Text>
+        </Pressable>
 
+        <Pressable onPress={handleCardPress} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={[styles.caption, { color: colors.text }]}>
+            {caption}
+          </Text>
+        </Pressable>
         <View style={styles.tagContainer}>
           {bookmarkTags.map((tag, index) => (
             <TouchableOpacity
