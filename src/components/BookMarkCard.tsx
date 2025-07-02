@@ -20,9 +20,8 @@ import {
   getTagsForBookmark,
   removeTagFromBookmark,
 } from "@/src/utils/tagStorage";
-import { getAutoplaySetting } from "@/src/utils/videoAutoPlay";
 import { useTheme } from "@/src/context/ThemeContext";
-import Toast from 'react-native-toast-message';
+import Toast from "react-native-toast-message";
 import PlatformIcon from "@/src/components/PlatformIcon";
 
 type Props = {
@@ -50,7 +49,7 @@ export default function BookmarkCard({
   isVisible,
   autoplay,
 }: Props) {
-  const { navigationTheme } = useTheme(); // 👈 get theme
+  const { navigationTheme } = useTheme();
   const colors = navigationTheme.colors;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [showModal, setShowModal] = useState(false);
@@ -64,21 +63,16 @@ export default function BookmarkCard({
 
   const handleScrollTo = (index: number) => {
     if (images && index >= 0 && index < images.length) {
-      // Direction: 1 for forward, -1 for backward
       const direction = index > activeIndex ? 1 : -1;
-
-      // Reset and animate
       slideAnim.setValue(direction * screenWidth);
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 250,
         useNativeDriver: true,
       }).start();
-
       setActiveIndex(index);
     }
   };
-
 
   const player = useVideoPlayer(video || "", (p) => {
     p.loop = true;
@@ -87,7 +81,6 @@ export default function BookmarkCard({
 
   useEffect(() => {
     if (!player) return;
-
     if (isVisible && autoplay) {
       player.play();
     } else {
@@ -95,46 +88,33 @@ export default function BookmarkCard({
     }
   }, [isVisible, autoplay, player]);
 
-
   useEffect(() => {
     const fetchTags = async () => {
       const loadedTags = await getTagsForBookmark(title);
       setBookmarkTags([...new Set([...tags, ...loadedTags])]);
     };
-
     fetchTags();
-
     const subscription = DeviceEventEmitter.addListener("globalTagsCleared", fetchTags);
     return () => subscription.remove();
   }, [title]);
 
   useEffect(() => {
     if (!images || images.length === 0) return;
-
     const promises = images.map((uri) => {
       return new Promise<number>((resolve) => {
         Image.getSize(
           uri,
           (w, h) => {
             const ratio = h / w;
-            const scaledHeight = Math.min(screenWidth * ratio, 450); // Max height cap
+            const scaledHeight = Math.min(screenWidth * ratio, 450);
             resolve(scaledHeight);
           },
-          () => resolve(200) // fallback height
+          () => resolve(200)
         );
       });
     });
-
     Promise.all(promises).then(setImageHeights);
   }, [images, screenWidth]);
-
-
-
-  useEffect(() => {
-    getTagsForBookmark(title).then((loadedTags) => {
-      setBookmarkTags([...new Set([...tags, ...loadedTags])]);
-    });
-  }, [title]);
 
   const handleAiTagPress = () => {
     aiTagBadgeRef.current?.measureInWindow((x, y, width) => {
@@ -161,7 +141,6 @@ export default function BookmarkCard({
         <View>
           <VideoView
             player={player}
-            style={[styles.media, { height: mediaHeight }]}
             isMuted
             allowsFullscreen={false}
             useNativeControls={false}
@@ -186,6 +165,11 @@ export default function BookmarkCard({
         <View>
           <VideoView
             player={player}
+            isMuted={false}
+            allowsFullscreen
+            allowsPictureInPicture
+            useNativeControls
+            shouldPlay={autoplay}
             style={[
               styles.media,
               {
@@ -193,11 +177,6 @@ export default function BookmarkCard({
                 backgroundColor: navigationTheme.dark ? "#1a1a1a" : "#f2f2f2",
               },
             ]}
-            isMuted={false}
-            allowsFullscreen
-            allowsPictureInPicture
-            useNativeControls
-            shouldPlay={autoplay}
           />
           <View style={[styles.iconOverlay, { backgroundColor: colors.card }]}>
             <PlatformIcon platform={source} />
@@ -244,7 +223,6 @@ export default function BookmarkCard({
               }}
             />
           </Animated.View>
-
           {images.length > 1 && activeIndex > 0 && (
             <TouchableOpacity
               onPress={() => handleScrollTo(activeIndex - 1)}
@@ -261,7 +239,6 @@ export default function BookmarkCard({
               <Text style={styles.scrollButtonText}>›</Text>
             </TouchableOpacity>
           )}
-
           <View style={[styles.iconOverlay, { backgroundColor: colors.card }]}>
             <PlatformIcon platform={source} />
           </View>
@@ -272,19 +249,25 @@ export default function BookmarkCard({
     return null;
   };
 
-
-  const shouldCardBeTappable = !video && (!images || images.length > 0);
-
   return (
     <Pressable
-      style={[styles.card, { backgroundColor: navigationTheme.dark ? "#2a2a2a" : colors.card, }]}
+      style={[
+        styles.card,
+        { backgroundColor: navigationTheme.dark ? "#2a2a2a" : colors.card },
+      ]}
     >
       {renderMedia()}
+
+      {/* fallback icon for no media */}
+      {!images?.length && !video && (
+        <View style={styles.textHeaderRow}>
+          <PlatformIcon platform={source} />
+        </View>
+      )}
+
       <View style={styles.textContent}>
         <Pressable onPress={handleCardPress} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            {title}
-          </Text>
+          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
         </Pressable>
 
         <Pressable onPress={handleCardPress} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
@@ -292,7 +275,7 @@ export default function BookmarkCard({
             style={[
               styles.caption,
               {
-                color: caption === "No description." ? 'gray' : colors.text,
+                color: caption === "No description." ? "gray" : colors.text,
                 fontStyle: "italic",
               },
             ]}
@@ -300,27 +283,24 @@ export default function BookmarkCard({
             {caption}
           </Text>
         </Pressable>
+
         <View style={styles.tagContainer}>
           {bookmarkTags.map((tag, index) => (
             <TouchableOpacity
               key={index}
               style={styles.tagBadge}
               onLongPress={() => {
-                Alert.alert(
-                  "Remove Tag",
-                  `Do you want to remove the Tag: "${tag}"?`,
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Remove",
-                      style: "destructive",
-                      onPress: async () => {
-                        await removeTagFromBookmark(title, tag);
-                        setBookmarkTags((prev) => prev.filter((t) => t !== tag));
-                      },
+                Alert.alert("Remove Tag", `Do you want to remove the Tag: "${tag}"?`, [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Remove",
+                    style: "destructive",
+                    onPress: async () => {
+                      await removeTagFromBookmark(title, tag);
+                      setBookmarkTags((prev) => prev.filter((t) => t !== tag));
                     },
-                  ]
-                );
+                  },
+                ]);
               }}
               activeOpacity={0.8}
             >
@@ -348,9 +328,9 @@ export default function BookmarkCard({
             await addTagToBookmark(title, newTag);
             setBookmarkTags((prev) => [...new Set([newTag, ...prev])]);
             Toast.show({
-              type: 'success',
-              text1: 'Tag added!',
-              position: 'bottom',
+              type: "success",
+              text1: "Tag added!",
+              position: "bottom",
               visibilityTime: 1500,
             });
           }
@@ -385,6 +365,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 3,
     elevation: 2,
+  },
+  textHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
   textContent: {
     padding: 12,
