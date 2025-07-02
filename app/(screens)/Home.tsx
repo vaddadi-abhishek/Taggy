@@ -1,6 +1,5 @@
 import BookmarkCard from "@/src/components/BookMarkCard";
 import TopHeader from "@/src/components/TopHeader";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   ActivityIndicator,
@@ -17,15 +16,18 @@ import { getTagsForBookmark } from "@/src/utils/tagStorage";
 import { useTheme } from "@/src/context/ThemeContext";
 import { FlashList, ViewToken } from "@shopify/flash-list";
 import fetchRedditPosts from "@/src/utils/reddit/fetchRedditPosts";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AnimatedBookmarkItem = ({
   item,
   index,
   isVisible,
+  autoplay,
 }: {
   item: any;
   index: number;
   isVisible: boolean;
+  autoplay: boolean;
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(10)).current;
@@ -59,6 +61,7 @@ const AnimatedBookmarkItem = ({
         tags={item.tags}
         url={item.url}
         isVisible={isVisible}
+        autoplay={autoplay}
       />
     </Animated.View>
   );
@@ -75,6 +78,32 @@ export default function HomeScreen() {
   const [username, setUsername] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
+  const listRef = useRef<FlashList<any>>(null);
+  const [autoplay, setAutoplay] = useState(true);
+
+  useEffect(() => {
+    // Load autoplay setting on mount
+    AsyncStorage.getItem("autoplay_videos").then((value) => {
+      if (value !== null) setAutoplay(value === "true");
+    });
+
+    // Listen for updates from Settings screen
+    eventBus.on("autoplayChanged", setAutoplay);
+
+    const scrollToTopListener = () => {
+      console.log("⤴️ Scrolling to top...");
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    };
+
+    eventBus.on("scrollToTop", scrollToTopListener);
+
+    return () => {
+      eventBus.off("autoplayChanged", setAutoplay);
+      eventBus.off("scrollToTop", scrollToTopListener);
+    };
+  }, []);
+
+
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -130,6 +159,7 @@ export default function HomeScreen() {
   };
 
   const onRefresh = async () => {
+    console.log("🔄 Pull-to-refresh triggered");
     setRefreshing(true);
     await loadSavedPosts(null);
     setRefreshing(false);
@@ -169,62 +199,80 @@ export default function HomeScreen() {
 
   useEffect(() => {
     onRefresh();
-    const refreshListener = async () => {
-      console.log("↻ Feed refresh triggered by tab tap");
-      setRefreshing(true);
-      await loadSavedPosts(null);
-      setRefreshing(false);
+
+    const scrollToTopListener = () => {
+      console.log("⤴️ Scrolling to top...");
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
     };
 
-    eventBus.on("refreshFeed", refreshListener);
+    eventBus.on("scrollToTop", scrollToTopListener);
     return () => {
-      eventBus.off("refreshFeed", refreshListener);
+      eventBus.off("scrollToTop", scrollToTopListener);
     };
   }, []);
+
 
   useEffect(() => {
     if (!searchText.trim()) setFilteredBookmarks(bookmarks);
   }, [searchText, bookmarks]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <SafeAreaView>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1 }}>
         <TopHeader
           onSearchTextChange={(text) => {
             setSearchText(text);
             handleSearchDebounced(text);
           }}
         />
-      </SafeAreaView>
 
-      {error && <Text style={[styles.error, { color: colors.notification }]}>{error}</Text>}
+        {error && <Text style={[styles.error, { color: colors.notification }]}>{error}</Text>}
 
-      <FlashList
-        data={filteredBookmarks}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item, index }) => (
-          <AnimatedBookmarkItem item={item} index={index} isVisible={visibleIds.includes(item.id)} />
-        )}
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.5}
-        estimatedItemSize={300}
-        extraData={visibleIds}
-        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          !refreshing && searchText.trim().length > 0 ? (
-            <Text style={[styles.noResults, { color: colors.border }]}>No Results</Text>
-          ) : null
-        }
-        ListFooterComponent={
-          loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null
-        }
-        contentContainerStyle={{ paddingBottom: 80 }}
-      />
-    </View>
+        <FlashList
+          ref={listRef}
+          data={filteredBookmarks}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item, index }) => (
+            <AnimatedBookmarkItem
+              item={item}
+              index={index}
+              isVisible={visibleIds.includes(item.id)}
+              autoplay={autoplay} />
+          )}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          estimatedItemSize={300}
+          extraData={[visibleIds, autoplay]}
+          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            !refreshing && searchText.trim().length > 0 ? (
+              <Text style={[styles.noResults, { color: colors.border }]}>No Results</Text>
+            ) : null
+          }
+          ListFooterComponent={
+            loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null
+          }
+          contentContainerStyle={{ paddingBottom: 80 }}
+          onLayout={(e) => {
+            const { height } = e.nativeEvent.layout;
+            console.log("📐 FlashList height:", height);
+          }}
+        />
+      </View>
+    </SafeAreaView>
   );
+
+
 }
 
 const styles = StyleSheet.create({

@@ -23,6 +23,7 @@ import {
 import { getAutoplaySetting } from "@/src/utils/videoAutoPlay";
 import { useTheme } from "@/src/context/ThemeContext";
 import Toast from 'react-native-toast-message';
+import PlatformIcon from "@/src/components/PlatformIcon";
 
 type Props = {
   images?: string[];
@@ -34,37 +35,7 @@ type Props = {
   tags: string[];
   url?: string;
   isVisible: boolean;
-};
-
-const platformIcons: Record<string, JSX.Element> = {
-  instagram: (
-    <Image
-      source={{ uri: "https://img.icons8.com/?size=100&id=Xy10Jcu1L2Su&format=png&color=000000" }}
-      style={{ width: 22, height: 22 }}
-      resizeMode="contain"
-    />
-  ),
-  reddit: (
-    <Image
-      source={{ uri: "https://img.icons8.com/?size=100&id=gxDo9YXCsacn&format=png&color=000000" }}
-      style={{ width: 22, height: 22 }}
-      resizeMode="contain"
-    />
-  ),
-  x: (
-    <Image
-      source={{ uri: "https://img.icons8.com/?size=100&id=phOKFKYpe00C&format=png&color=ffffff" }}
-      style={{ width: 22, height: 22 }}
-      resizeMode="contain"
-    />
-  ),
-  youtube: (
-    <Image
-      source={{ uri: "https://img.icons8.com/?size=100&id=qLVB1tIe9Ts9&format=png&color=000000" }}
-      style={{ width: 22, height: 22 }}
-      resizeMode="contain"
-    />
-  ),
+  autoplay: boolean;
 };
 
 export default function BookmarkCard({
@@ -77,6 +48,7 @@ export default function BookmarkCard({
   tags,
   url,
   isVisible,
+  autoplay,
 }: Props) {
   const { navigationTheme } = useTheme(); // 👈 get theme
   const colors = navigationTheme.colors;
@@ -87,7 +59,6 @@ export default function BookmarkCard({
   const { width: screenWidth } = useWindowDimensions();
   const [mediaHeight, setMediaHeight] = useState(200);
   const [bookmarkTags, setBookmarkTags] = useState<string[]>(tags);
-  const [autoplay, setAutoplay] = useState<boolean | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [imageHeights, setImageHeights] = useState<number[]>([]);
 
@@ -115,11 +86,7 @@ export default function BookmarkCard({
   });
 
   useEffect(() => {
-    getAutoplaySetting().then(setAutoplay);
-  }, []);
-
-  useEffect(() => {
-    if (!player || autoplay === null) return;
+    if (!player) return;
 
     if (isVisible && autoplay) {
       player.play();
@@ -208,7 +175,7 @@ export default function BookmarkCard({
             ]}
           />
           <View style={[styles.iconOverlay, { backgroundColor: colors.card }]}>
-            {platformIcons[source]}
+            <PlatformIcon platform={source} />
           </View>
         </View>
       );
@@ -233,7 +200,7 @@ export default function BookmarkCard({
             shouldPlay={autoplay}
           />
           <View style={[styles.iconOverlay, { backgroundColor: colors.card }]}>
-            {platformIcons[source]}
+            <PlatformIcon platform={source} />
           </View>
         </View>
       );
@@ -296,7 +263,7 @@ export default function BookmarkCard({
           )}
 
           <View style={[styles.iconOverlay, { backgroundColor: colors.card }]}>
-            {platformIcons[source]}
+            <PlatformIcon platform={source} />
           </View>
         </View>
       );

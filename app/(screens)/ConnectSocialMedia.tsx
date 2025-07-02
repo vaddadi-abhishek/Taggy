@@ -8,22 +8,14 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from "react-native";
 import eventBus from "@/src/utils/eventBus";
 import handleSocialConnect from "@/src/utils/socialAuthDispatcher";
 import { useNavigationTheme, useTheme } from "@/src/context/ThemeContext";
+import PlatformIcon from "@/src/components/PlatformIcon";
+import { socialPlatforms } from "@/src/components/PlatformIcon";
 
-const socialPlatforms = [
-  { id: "1", name: "Reddit", key: "reddit" },
-  { id: "2", name: "Twitter", key: "twitter" },
-  { id: "3", name: "Instagram", key: "instagram" },
-];
-
-const platformIcons: Record<string, JSX.Element> = {
-  reddit: <FontAwesome6 name="reddit" size={22} color="#FF4500" />,
-  twitter: <FontAwesome6 name="x-twitter" size={22} color="#000000" />,
-  instagram: <FontAwesome6 name="instagram" size={22} color="#E1306C" />,
-};
 
 export default function ConnectSocialMedia() {
   const { theme } = useTheme();
@@ -89,16 +81,18 @@ export default function ConnectSocialMedia() {
         style={[
           styles.card,
           { backgroundColor: colors.card },
-          !isReddit && styles.disabledCard,
+          !isReddit && { backgroundColor: isDark ? "#121212" : "#f0f0f0" }, ,
         ]}
       >
         <View style={styles.left}>
-          <View style={styles.icon}>{platformIcons[item.key]}</View>
+          <View style={styles.icon}>
+            <PlatformIcon platform={item.key as any} />
+          </View>
           <Text
             style={[
               styles.platform,
-              { color: colors.text },
-              !isReddit && styles.disabledText,
+              { color: colors.primary },
+              !isReddit && { backgroundColor: isDark ? "#121212" : "#f0f0f0" }, ,
             ]}
           >
             {item.name}
@@ -194,12 +188,6 @@ const styles = StyleSheet.create({
   },
   connectedText: {
     color: "#fff",
-  },
-  disabledCard: {
-    backgroundColor: "#121212",
-  },
-  disabledText: {
-    color: "#444",
   },
   comingSoon: {
     fontSize: 12,

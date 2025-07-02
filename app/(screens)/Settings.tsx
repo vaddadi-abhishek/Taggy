@@ -34,6 +34,7 @@ const SettingsScreen = () => {
     const newValue = !autoplayEnabled;
     setAutoplayEnabled(newValue);
     await AsyncStorage.setItem("autoplay_videos", newValue.toString());
+    eventBus.emit("autoplayChanged", newValue);
   };
 
   const handleLogout = () => {

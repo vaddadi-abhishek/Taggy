@@ -38,7 +38,7 @@ export default function RootLayout() {
                   {...props}
                   onPress={() => {
                     if (isFocused) {
-                      eventBus.emit("refreshFeed");
+                      eventBus.emit("scrollToTop");
                     }
                     props.onPress?.();
                   }}
