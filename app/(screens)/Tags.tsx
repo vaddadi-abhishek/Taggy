@@ -1,4 +1,3 @@
-// src/screens/Tags.tsx
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -11,6 +10,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from "react-native";
 import {
   getAllTags,
@@ -23,14 +23,17 @@ import eventBus from "@/src/utils/eventBus";
 
 export default function TagsScreen() {
   const theme = useTheme();
-  const { colors, dark } = theme.navigationTheme;
+  const { colors } = theme.navigationTheme;
 
   const [tags, setTags] = useState<string[]>([]);
   const [searchText, setSearchText] = useState("");
-  const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
-  const [editedTagName, setEditedTagName] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingTagName, setEditingTagName] = useState("");
+  const [editingTagIndexModal, setEditingTagIndexModal] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const triggerShake = () => {
     Animated.sequence([
@@ -54,22 +57,13 @@ export default function TagsScreen() {
   };
 
   useEffect(() => {
+    const handler = () => loadTags();
+    eventBus.on("refreshFeed", handler);
     loadTags();
-
-    const unsubscribe = eventBus.on("refreshFeed", loadTags);
-    return () => unsubscribe();
+    return () => {
+      eventBus.off("refreshFeed", handler);
+    };
   }, []);
-
-  const handleAddPress = async () => {
-    const newTag = searchText.trim();
-    if (newTag.length < 3) return triggerShake();
-
-    const success = await addGlobalTag(newTag);
-    if (!success) return triggerShake();
-
-    setTags((prev) => [newTag, ...prev]);
-    setSearchText("");
-  };
 
   const handleDelete = (tag: string) => {
     Alert.alert(
@@ -83,10 +77,9 @@ export default function TagsScreen() {
           onPress: async () => {
             await deleteGlobalTag(tag);
             setTags((prev) => prev.filter((t) => t !== tag));
-            if (editingTagIndex !== null && tags[editingTagIndex] === tag) {
-              setEditingTagIndex(null);
-              setEditedTagName("");
-            }
+            setEditModalVisible(false);
+            setEditingTagName("");
+            setEditingTagIndexModal(null);
           },
         },
       ]
@@ -94,23 +87,34 @@ export default function TagsScreen() {
   };
 
   const handleEdit = (index: number) => {
-    setEditingTagIndex(index);
-    setEditedTagName(tags[index]);
+    setIsEditing(true);
+    setEditingTagName(tags[index]);
+    setEditingTagIndexModal(index);
+    setEditModalVisible(true);
   };
 
-  const handleSaveEdit = async (index: number) => {
-    const newName = editedTagName.trim();
+  const handleSave = async () => {
+    const newName = editingTagName.trim();
     if (newName.length < 3) return triggerShake();
 
-    const oldName = tags[index];
-    const success = await updateGlobalTag(oldName, newName);
-    if (!success) return triggerShake();
+    if (isEditing && editingTagIndexModal !== null) {
+      const oldName = tags[editingTagIndexModal];
+      const success = await updateGlobalTag(oldName, newName);
+      if (!success) return triggerShake();
 
-    const updated = [...tags];
-    updated[index] = newName;
-    setTags(updated);
-    setEditingTagIndex(null);
-    setEditedTagName("");
+      const updated = [...tags];
+      updated[editingTagIndexModal] = newName;
+      setTags(updated);
+    } else {
+      const success = await addGlobalTag(newName);
+      if (!success) return triggerShake();
+      setTags((prev) => [newName, ...prev]);
+    }
+
+    setEditModalVisible(false);
+    setEditingTagName("");
+    setEditingTagIndexModal(null);
+    setIsEditing(false);
   };
 
   return (
@@ -125,15 +129,19 @@ export default function TagsScreen() {
               borderColor: colors.border,
             },
           ]}
-          placeholder="Add or Search Tags"
-          placeholderTextColor={colors.border}
+          placeholder="Search Tags"
+          placeholderTextColor={colors.text}
           value={searchText}
           onChangeText={setSearchText}
         />
-        <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
-          <Ionicons name="add-circle-outline" size={22} color="#fff" />
-          <Text style={styles.addText}>Add Tag</Text>
-        </TouchableOpacity>
+        {searchText.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearIcon}
+            onPress={() => setSearchText("")}
+          >
+            <Ionicons name="close-circle" size={20} color="#aaa" />
+          </TouchableOpacity>
+        )}
       </Animated.View>
 
       <Text style={[styles.subheading, { color: colors.text }]}>
@@ -157,36 +165,12 @@ export default function TagsScreen() {
               ]}
             >
               <View style={{ flex: 1 }}>
-                {editingTagIndex === index ? (
-                  <TextInput
-                    value={editedTagName}
-                    onChangeText={setEditedTagName}
-                    style={[
-                      styles.editInput,
-                      {
-                        backgroundColor: colors.background,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    autoFocus
-                    placeholder="Edit tag name"
-                    placeholderTextColor={colors.border}
-                  />
-                ) : (
-                  <Text style={[styles.tagText, { color: colors.text }]}>{tag}</Text>
-                )}
+                <Text style={[styles.tagText, { color: colors.text }]}>{tag}</Text>
               </View>
               <View style={styles.actions}>
-                {editingTagIndex === index ? (
-                  <TouchableOpacity onPress={() => handleSaveEdit(index)}>
-                    <Ionicons name="checkmark-done" size={20} color="#4ade80" />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity onPress={() => handleEdit(index)}>
-                    <Ionicons name="create-outline" size={20} color="#888" />
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity onPress={() => handleEdit(index)}>
+                  <Ionicons name="create-outline" size={20} color="#888" />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => handleDelete(tag)}>
                   <Ionicons name="trash-outline" size={20} color="#ff5252" />
                 </TouchableOpacity>
@@ -194,6 +178,83 @@ export default function TagsScreen() {
             </View>
           ))}
       </ScrollView>
+
+      {/* Floating + Button */}
+      <TouchableOpacity
+        style={styles.floatingAddButton}
+        onPress={() => {
+          setIsEditing(false);
+          setEditingTagName("");
+          setEditingTagIndexModal(null);
+          setEditModalVisible(true);
+        }}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Modal */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setEditModalVisible(false);
+          setEditingTagName("");
+          setEditingTagIndexModal(null);
+          setIsEditing(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {isEditing ? "Edit Tag" : "Add Tag"}
+            </Text>
+
+            <TextInput
+              value={editingTagName}
+              onChangeText={setEditingTagName}
+              placeholder="Enter tag name"
+              placeholderTextColor={colors.border}
+              style={[
+                styles.modalInput,
+                {
+                  backgroundColor: colors.background,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
+              ]}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: "#f87171" }]}
+                onPress={() => {
+                  setEditModalVisible(false);
+                  setEditingTagName("");
+                  setEditingTagIndexModal(null);
+                  setIsEditing(false);
+                }}
+              >
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                disabled={editingTagName.trim().length < 3}
+                style={[
+                  styles.modalBtn,
+                  {
+                    backgroundColor:
+                      editingTagName.trim().length < 3 ? "#9ca3af" : "#4ade80",
+                  },
+                ]}
+                onPress={handleSave}
+              >
+                <Text style={styles.modalBtnText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -210,21 +271,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 40,
-    marginRight: 8,
     borderWidth: 1,
-  },
-  addButton: {
-    backgroundColor: "#6366f1",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-  },
-  addText: {
-    color: "#fff",
-    fontSize: 14,
-    marginLeft: 4,
   },
   subheading: {
     fontWeight: "600",
@@ -244,16 +291,72 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
-  editInput: {
-    fontSize: 14,
-    fontWeight: "500",
-    padding: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
   actions: {
     flexDirection: "row",
     gap: 12,
     marginLeft: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalBox: {
+    width: "100%",
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 20,
+    elevation: 4,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 20,
+    fontSize: 14,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  modalBtn: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  modalBtnText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  floatingAddButton: {
+    position: "absolute",
+    right: 20,
+    bottom: 30,
+    backgroundColor: "#6366f1",
+    padding: 14,
+    borderRadius: 30,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  searchInputWrapper: {
+    flex: 1,
+    position: "relative",
+  },
+  clearIcon: {
+    position: "absolute",
+    right: 10,
+    top: 10,
   },
 });

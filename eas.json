@@ -12,7 +12,11 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "TWITTER_CLIENT_ID": "prod_id",
+        "TWITTER_CLIENT_SECRET": "prod_secret"
+      }
     }
   },
   "submit": {

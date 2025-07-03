@@ -103,7 +103,7 @@ const SettingsScreen = () => {
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.row}
-            onPress={() => router.push("/src/(screens)/ConnectSocialMedia")}
+            onPress={() => router.push("/ConnectSocialMedia")}
           >
             <MaterialIcons name="link" size={22} color="#3573D1" />
             <View style={styles.textWrapper}>

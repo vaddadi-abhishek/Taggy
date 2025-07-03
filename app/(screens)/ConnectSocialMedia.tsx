@@ -8,14 +8,12 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Image,
 } from "react-native";
 import eventBus from "@/src/utils/eventBus";
 import handleSocialConnect from "@/src/utils/socialAuthDispatcher";
 import { useNavigationTheme, useTheme } from "@/src/context/ThemeContext";
 import PlatformIcon from "@/src/components/PlatformIcon";
 import { socialPlatforms } from "@/src/components/PlatformIcon";
-
 
 export default function ConnectSocialMedia() {
   const { theme } = useTheme();
@@ -74,14 +72,14 @@ export default function ConnectSocialMedia() {
 
   const renderItem = ({ item }: { item: (typeof socialPlatforms)[0] }) => {
     const isConnected = connected[item.id];
-    const isReddit = item.key === "reddit";
+    const isSupported = ["reddit", "x"].includes(item.key.toLowerCase());
 
     return (
       <View
         style={[
           styles.card,
           { backgroundColor: colors.card },
-          !isReddit && { backgroundColor: isDark ? "#121212" : "#f0f0f0" }, ,
+          !isSupported && { backgroundColor: isDark ? "#121212" : "#f0f0f0" },
         ]}
       >
         <View style={styles.left}>
@@ -92,14 +90,16 @@ export default function ConnectSocialMedia() {
             style={[
               styles.platform,
               { color: colors.primary },
-              !isReddit && { backgroundColor: isDark ? "#121212" : "#f0f0f0" }, ,
+              !isSupported && {
+                backgroundColor: isDark ? "#121212" : "#f0f0f0",
+              },
             ]}
           >
             {item.name}
           </Text>
         </View>
 
-        {isReddit ? (
+        {isSupported ? (
           <TouchableOpacity
             style={[
               styles.button,
@@ -118,12 +118,7 @@ export default function ConnectSocialMedia() {
             </Text>
           </TouchableOpacity>
         ) : (
-          <Text
-            style={[
-              styles.comingSoon,
-              { color: isDark ? "#aaa" : "#666" },
-            ]}
-          >
+          <Text style={[styles.comingSoon, { color: isDark ? "#aaa" : "#666" }]}>
             Coming Soon
           </Text>
         )}

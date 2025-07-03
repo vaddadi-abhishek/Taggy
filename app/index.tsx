@@ -15,17 +15,17 @@ import handleSocialConnect from '@/src/utils/socialAuthDispatcher';
 export default function IndexScreen() {
   const [loading, setLoading] = useState(true);
 
-  // ✅ On load, check if Reddit is already connected
   useEffect(() => {
-    const checkRedditToken = async () => {
-      const token = await AsyncStorage.getItem('reddit_token');
-      if (token) {
+    const checkToken = async () => {
+      const redditToken = await AsyncStorage.getItem('reddit_token');
+      const twitterToken = await AsyncStorage.getItem('twitter_token');
+      if (redditToken || twitterToken) {
         router.replace('/Home');
       } else {
         setLoading(false);
       }
     };
-    checkRedditToken();
+    checkToken();
   }, []);
 
   const startRedditLogin = async () => {
@@ -34,6 +34,15 @@ export default function IndexScreen() {
       router.replace('/Home');
     } else {
       console.warn('❌ Reddit login failed');
+    }
+  };
+
+  const startTwitterLogin = async () => {
+    const connected = await handleSocialConnect('twitter', true);
+    if (connected) {
+      router.replace('/Home');
+    } else {
+      console.warn('❌ Twitter login failed');
     }
   };
 
@@ -51,21 +60,30 @@ export default function IndexScreen() {
         <Text style={styles.welcomeText}>Let's</Text>
         <Text style={styles.welcomeText}>Go</Text>
         <Text style={styles.paraText}>
-          sailing across social media for saved posts.
+          Organize your saved posts across all social media posts.
         </Text>
       </View>
 
       <View style={styles.btnWrapper}>
-        <TouchableOpacity style={styles.btnStyles} onPress={startRedditLogin}>
+        <TouchableOpacity style={styles.fullBtn} onPress={startRedditLogin}>
           <Image
-            source={{
-              uri: 'https://img.icons8.com/3d-fluency/375/reddit.png',
-            }}
+            source={{ uri: 'https://img.icons8.com/?size=100&id=gxDo9YXCsacn&format=png&color=000000' }}
             style={styles.btnImg}
           />
           <Text style={styles.btnText}>Login with Reddit</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.fullBtn} onPress={startTwitterLogin}>
+          <Image
+            source={{
+              uri: 'https://img.icons8.com/?size=100&id=YfCbGWCWcuar&format=png&color=ffffff',
+            }}
+            style={styles.btnImg}
+          />
+          <Text style={styles.btnText}>Login with X</Text>
+        </TouchableOpacity>
       </View>
+
     </View>
   );
 }
@@ -74,7 +92,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-
   viewText: {
     flex: 1,
     justifyContent: 'center',
@@ -85,26 +102,32 @@ const styles = StyleSheet.create({
     fontSize: 48,
   },
   paraText: {
-    width: 100,
+    width: 200,
   },
   btnWrapper: {
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 50,
+    gap: 16, // gap between buttons
   },
-  btnStyles: {
+
+  fullBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 21,
+    justifyContent: 'center',
+    width: 250,
+    height: 50,
     borderRadius: 25,
     backgroundColor: '#3573D1',
+    gap: 10,
   },
+
   btnImg: {
     width: 20,
     height: 20,
+    resizeMode: 'contain',
   },
+
   btnText: {
     color: 'white',
     fontSize: 16,

@@ -50,7 +50,10 @@ const AnimatedBookmarkItem = ({
   }, []);
 
   return (
-    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+    <Animated.View
+      key={`${item.id}-${(item.localTags || []).join(",")}`} // 🔥 Force re-render on tag change
+      style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+    >
       <BookmarkCard
         images={item.images}
         video={item.video}
@@ -58,7 +61,7 @@ const AnimatedBookmarkItem = ({
         source={item.source}
         title={item.title}
         caption={item.caption}
-        tags={item.tags}
+        tags={[...(item.tags || []), ...(item.localTags || [])]}
         url={item.url}
         isVisible={isVisible}
         autoplay={autoplay}
@@ -91,7 +94,6 @@ export default function HomeScreen() {
     eventBus.on("autoplayChanged", setAutoplay);
 
     const scrollToTopListener = () => {
-      console.log("⤴️ Scrolling to top...");
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
     };
 
@@ -133,15 +135,22 @@ export default function HomeScreen() {
       const { posts, after: newAfter, username: uname } = await fetchRedditPosts(afterParam, username);
       setUsername(uname);
 
+      const postsWithLocalTags = await Promise.all(
+        posts.map(async (p) => {
+          const localTags = await getTagsForBookmark(p.title);
+          return { ...p, localTags };
+        })
+      );
+
       if (afterParam) {
         setBookmarks((prev) => {
-          const updated = [...prev, ...posts];
+          const updated = [...prev, ...postsWithLocalTags];
           handleSearchDebounced(searchText, updated);
           return updated;
         });
       } else {
-        setBookmarks(posts);
-        handleSearchDebounced(searchText, posts);
+        setBookmarks(postsWithLocalTags);
+        handleSearchDebounced(searchText, postsWithLocalTags);
       }
 
       setAfter(newAfter);
@@ -158,8 +167,8 @@ export default function HomeScreen() {
     }
   };
 
+
   const onRefresh = async () => {
-    console.log("🔄 Pull-to-refresh triggered");
     setRefreshing(true);
     await loadSavedPosts(null);
     setRefreshing(false);
@@ -201,7 +210,6 @@ export default function HomeScreen() {
     onRefresh();
 
     const scrollToTopListener = () => {
-      console.log("⤴️ Scrolling to top...");
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
     };
 
@@ -215,6 +223,26 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!searchText.trim()) setFilteredBookmarks(bookmarks);
   }, [searchText, bookmarks]);
+
+  useEffect(() => {
+    const updateTagsOnEvent = async () => {
+      const updated = await Promise.all(
+        bookmarks.map(async (b) => {
+          const localTags = await getTagsForBookmark(b.title);
+          return { ...b, localTags };
+        })
+      );
+      setBookmarks(updated);
+      handleSearchDebounced(searchText, updated);
+    };
+
+    eventBus.on("refreshFeed", updateTagsOnEvent);
+
+    return () => {
+      eventBus.off("refreshFeed", updateTagsOnEvent);
+    };
+  }, [bookmarks]);
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -242,7 +270,7 @@ export default function HomeScreen() {
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
           estimatedItemSize={300}
-          extraData={[visibleIds, autoplay]}
+          extraData={[visibleIds, autoplay, bookmarks]}
           maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
@@ -263,10 +291,6 @@ export default function HomeScreen() {
             loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null
           }
           contentContainerStyle={{ paddingBottom: 80 }}
-          onLayout={(e) => {
-            const { height } = e.nativeEvent.layout;
-            console.log("📐 FlashList height:", height);
-          }}
         />
       </View>
     </SafeAreaView>

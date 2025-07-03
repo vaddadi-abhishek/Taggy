@@ -23,6 +23,7 @@ import {
 import { useTheme } from "@/src/context/ThemeContext";
 import Toast from "react-native-toast-message";
 import PlatformIcon from "@/src/components/PlatformIcon";
+import eventBus from "@/src/utils/eventBus";
 
 type Props = {
   images?: string[];
@@ -327,6 +328,7 @@ export default function BookmarkCard({
           if (!bookmarkTags.includes(newTag)) {
             await addTagToBookmark(title, newTag);
             setBookmarkTags((prev) => [...new Set([newTag, ...prev])]);
+            eventBus.emit("refreshFeed");
             Toast.show({
               type: "success",
               text1: "Tag added!",

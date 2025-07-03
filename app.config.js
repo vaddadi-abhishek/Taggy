@@ -6,7 +6,7 @@ export default {
     slug: 'taggy',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/images/icon.png',
+    icon: './assets/images/icon-1.png',
     scheme: 'taggy',
     userInterfaceStyle: 'automatic',
     newArchEnabled: true,
@@ -14,9 +14,9 @@ export default {
       supportsTablet: true,
     },
     android: {
-      package: 'com.abhishekvaddadi.taggy', // ✅ REQUIRED FIELD
+      package: 'com.abhishekvaddadi.taggy',
       adaptiveIcon: {
-        foregroundImage: './assets/images/adaptive-icon.png',
+        foregroundImage: './assets/images/adaptive-icon-1.png',
         backgroundColor: '#ffffff',
       },
       edgeToEdgeEnabled: true,
@@ -44,7 +44,7 @@ export default {
       [
         'expo-splash-screen',
         {
-          image: './assets/images/splash-icon.png',
+          image: './assets/images/splash-1.png',
           imageWidth: 200,
           resizeMode: 'contain',
           backgroundColor: '#ffffff',
@@ -60,7 +60,9 @@ export default {
       REDDIT_CLIENT_ID: process.env.REDDIT_CLIENT_ID,
       "eas": {
         "projectId": "613b6096-e5c2-4e51-82c1-af485ab6848a"
-      }
+      },
+      TWITTER_CLIENT_ID: process.env.TWITTER_CLIENT_ID,
+      TWITTER_CLIENT_SECRET: process.env.TWITTER_CLIENT_SECRET,
     },
   },
 };

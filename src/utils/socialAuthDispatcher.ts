@@ -10,7 +10,7 @@ const handleSocialConnect = async (
   switch (platform) {
     case "reddit":
       return await redditAuth(shouldConnect);
-    case "twitter":
+    case "x":
       return await XAuth(shouldConnect);
     case "youtube":
       return await YoutubeAuth(shouldConnect);
