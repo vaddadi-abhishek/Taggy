@@ -168,7 +168,7 @@ export default function FloatingTagModal({
 
     const added = await addTagToStorage(tag);
     if (!added) return;
-
+    eventBus.on("refreshFeed", handler);
     onSubmit(tag);
     tagValue.current = "";
     onClose();
@@ -194,7 +194,7 @@ export default function FloatingTagModal({
               ]}
               {...panResponder.panHandlers}
             >
-              <TouchableWithoutFeedback onPress={() => {}}>
+              <TouchableWithoutFeedback onPress={() => { }}>
                 <View>
                   <Text style={[styles.label, { color: colors.text }]}>
                     Create new tag

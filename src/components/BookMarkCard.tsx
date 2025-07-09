@@ -81,13 +81,33 @@ export default function BookmarkCard({
   });
 
   useEffect(() => {
-    if (!player) return;
-    if (isVisible && autoplay) {
-      player.play();
-    } else {
-      player.pause();
-    }
+    let isMounted = true;
+
+    const controlVideo = async () => {
+      if (!player) return;
+
+      try {
+        if (isMounted) {
+          if (isVisible && autoplay) {
+            await player.play();
+          } else {
+            await player.pause();
+          }
+        }
+      } catch (err) {
+        console.warn("🎥 Video control error:", err);
+      }
+    };
+
+    const timeout = setTimeout(controlVideo, 50);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+    };
   }, [isVisible, autoplay, player]);
+
+
 
   useEffect(() => {
     const fetchTags = async () => {
@@ -124,13 +144,37 @@ export default function BookmarkCard({
     });
   };
 
-  const handleCardPress = () => {
-    if (url) {
-      Linking.openURL(url).catch((err) =>
-        console.warn("Failed to open URL:", err)
-      );
+  const handleCardPress = async () => {
+    if (!url) return;
+
+    try {
+      if (source === "x") {
+        // Normalize the URL to be compatible with the X app
+        const match = url.match(/status\/(\d+)/);
+        const tweetId = match?.[1];
+
+        if (tweetId) {
+          const twitterAppURL = `twitter://status?id=${tweetId}`;
+          const canOpenApp = await Linking.canOpenURL(twitterAppURL);
+
+          if (canOpenApp) {
+            await Linking.openURL(twitterAppURL); // ✅ Open in X app
+          } else {
+            const fixedUrl = `https://x.com/status/${tweetId}`;
+            await Linking.openURL(fixedUrl); // ✅ Fallback to browser
+          }
+          return;
+        }
+      }
+
+      // Default for other platforms
+      await Linking.openURL(url);
+
+    } catch (err) {
+      console.warn("❌ Failed to open URL:", err);
     }
   };
+
 
   const renderMedia = () => {
     const isGif = isRedditGif || (typeof video === "string" && /v\.redd\.it.*\.mp4/.test(video));
@@ -145,7 +189,7 @@ export default function BookmarkCard({
             isMuted
             allowsFullscreen={false}
             useNativeControls={false}
-            shouldPlay={autoplay}
+            shouldPlay={false}
             style={[
               styles.media,
               {
@@ -170,7 +214,7 @@ export default function BookmarkCard({
             allowsFullscreen
             allowsPictureInPicture
             useNativeControls
-            shouldPlay={autoplay}
+            shouldPlay={false}
             style={[
               styles.media,
               {

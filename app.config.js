@@ -4,6 +4,7 @@ export default {
   expo: {
     name: 'taggy',
     slug: 'taggy',
+    owner: "abhishek-vaddadi",
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon-1.png',

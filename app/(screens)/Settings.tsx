@@ -14,7 +14,7 @@ import { MaterialIcons, Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useTheme } from "@/src/context/ThemeContext";
-import eventBus from "@/src/utils/eventBus"; 
+import eventBus from "@/src/utils/eventBus";
 
 const SettingsScreen = () => {
   const { theme, mode, setThemeMode } = useTheme();
@@ -38,14 +38,26 @@ const SettingsScreen = () => {
   };
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
+    Alert.alert("Logout", "Logging out will disconnect all your accounts. Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Yes",
         style: "destructive",
         onPress: async () => {
-          await AsyncStorage.clear();
-          router.replace("/");
+          try {
+            await AsyncStorage.multiRemove([
+              'reddit_token',
+              'x_token',
+              'x_cache_time',
+              'x_token_timestamp',
+              'reddit_token',
+            ])
+            router.replace("/");
+          }
+          catch (err) {
+            console.error("Logout failed:", err);
+            Alert.alert("Error", "Failed to logout properly.");
+          }
         },
       },
     ]);

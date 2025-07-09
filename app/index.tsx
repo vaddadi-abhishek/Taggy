@@ -11,6 +11,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import handleSocialConnect from '@/src/utils/socialAuthDispatcher';
+import { checkXReconnectAllowed } from "@/src/utils/XAuth";
 
 export default function IndexScreen() {
   const [loading, setLoading] = useState(true);
@@ -18,7 +19,7 @@ export default function IndexScreen() {
   useEffect(() => {
     const checkToken = async () => {
       const redditToken = await AsyncStorage.getItem('reddit_token');
-      const twitterToken = await AsyncStorage.getItem('twitter_token');
+      const twitterToken = await AsyncStorage.getItem('x_token');
       if (redditToken || twitterToken) {
         router.replace('/Home');
       } else {
@@ -38,7 +39,13 @@ export default function IndexScreen() {
   };
 
   const startTwitterLogin = async () => {
-    const connected = await handleSocialConnect('twitter', true);
+    const { allowed, remaining } = await checkXReconnectAllowed();
+    if (!allowed) {
+      Alert.alert("Wait a bit ⏱️", `You can connect X only after ${remaining}`);
+      return;
+    }
+
+    const connected = await handleSocialConnect('x', true);
     if (connected) {
       router.replace('/Home');
     } else {
@@ -83,7 +90,6 @@ export default function IndexScreen() {
           <Text style={styles.btnText}>Login with X</Text>
         </TouchableOpacity>
       </View>
-
     </View>
   );
 }
@@ -108,9 +114,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 50,
-    gap: 16, // gap between buttons
+    gap: 16,
   },
-
   fullBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -121,13 +126,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#3573D1',
     gap: 10,
   },
-
   btnImg: {
     width: 20,
     height: 20,
     resizeMode: 'contain',
   },
-
   btnText: {
     color: 'white',
     fontSize: 16,

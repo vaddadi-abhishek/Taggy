@@ -15,8 +15,10 @@ import debounce from "lodash.debounce";
 import { getTagsForBookmark } from "@/src/utils/tagStorage";
 import { useTheme } from "@/src/context/ThemeContext";
 import { FlashList, ViewToken } from "@shopify/flash-list";
-import fetchRedditPosts from "@/src/utils/reddit/fetchRedditPosts";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { checkXBookmarksVisible } from "@/src/utils/XAuth";
+import generateBookmarkKey from "@/src/utils/generateBookmarkKey";
+import { loadAllBookmarks, loadMoreBookmarks } from "@/src/utils/loadAllBookmarks";
 
 const AnimatedBookmarkItem = ({
   item,
@@ -51,7 +53,6 @@ const AnimatedBookmarkItem = ({
 
   return (
     <Animated.View
-      key={`${item.id}-${(item.localTags || []).join(",")}`} // 🔥 Force re-render on tag change
       style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
     >
       <BookmarkCard
@@ -76,27 +77,22 @@ export default function HomeScreen() {
   const [filteredBookmarks, setFilteredBookmarks] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [after, setAfter] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
   const listRef = useRef<FlashList<any>>(null);
   const [autoplay, setAutoplay] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [searchType, setSearchType] = useState<"all" | "title" | "caption" | "tags">("all");
+  const searchTypeRef = useRef(searchType);
 
   useEffect(() => {
-    // Load autoplay setting on mount
-    AsyncStorage.getItem("autoplay_videos").then((value) => {
-      if (value !== null) setAutoplay(value === "true");
+    AsyncStorage.getItem("autoplay_videos").then((val) => {
+      if (val !== null) setAutoplay(val === "true");
     });
 
-    // Listen for updates from Settings screen
     eventBus.on("autoplayChanged", setAutoplay);
-
-    const scrollToTopListener = () => {
+    const scrollToTopListener = () =>
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
-    };
-
     eventBus.on("scrollToTop", scrollToTopListener);
 
     return () => {
@@ -104,8 +100,6 @@ export default function HomeScreen() {
       eventBus.off("scrollToTop", scrollToTopListener);
     };
   }, []);
-
-
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -118,71 +112,11 @@ export default function HomeScreen() {
     itemVisiblePercentThreshold: 60,
   }).current;
 
-  const fetchUsername = async (token: string) => {
-    const res = await fetch("https://oauth.reddit.com/api/v1/me", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "taggy-app/1.0 (by u/South_Pencil)",
-      },
-    });
-    if (!res.ok) throw new Error("User fetch failed");
-    const data = await res.json();
-    return data.name;
-  };
-
-  const loadSavedPosts = async (afterParam: string | null = null) => {
-    try {
-      const { posts, after: newAfter, username: uname } = await fetchRedditPosts(afterParam, username);
-      setUsername(uname);
-
-      const postsWithLocalTags = await Promise.all(
-        posts.map(async (p) => {
-          const localTags = await getTagsForBookmark(p.title);
-          return { ...p, localTags };
-        })
-      );
-
-      if (afterParam) {
-        setBookmarks((prev) => {
-          const updated = [...prev, ...postsWithLocalTags];
-          handleSearchDebounced(searchText, updated);
-          return updated;
-        });
-      } else {
-        setBookmarks(postsWithLocalTags);
-        handleSearchDebounced(searchText, postsWithLocalTags);
-      }
-
-      setAfter(newAfter);
-      setError(null);
-    } catch (err: any) {
-      if (err.message === "NO_AUTH") {
-        setError("Please, Connect Your Reddit Account 😄");
-        setBookmarks([]);
-        setFilteredBookmarks([]);
-      } else {
-        console.error("Load error:", err);
-        setError("Could not fetch Reddit data.");
-      }
-    }
-  };
-
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadSavedPosts(null);
-    setRefreshing(false);
-  };
-
-  const onEndReached = async () => {
-    if (after && !loadingMore && !refreshing) {
-      setLoadingMore(true);
-      await loadSavedPosts(after);
-      setLoadingMore(false);
-    }
-  };
-
-  const handleSearch = async (text: string, data: any[] = bookmarks) => {
+  const handleSearch = async (
+    text: string,
+    data: any[] = bookmarks,
+    type: "all" | "title" | "caption" | "tags" = searchType
+  ) => {
     setSearchText(text);
     if (!text.trim()) return setFilteredBookmarks(data);
 
@@ -191,9 +125,23 @@ export default function HomeScreen() {
 
     for (const item of data) {
       const localTags = await getTagsForBookmark(item.title);
-      const allTags = [...(item.tags || []), ...localTags];
-      const content = `${item.title} ${item.caption} ${allTags.join(" ")}`.toLowerCase();
-      if (content.includes(lower)) results.push(item);
+      const allTags = [...(item.tags || []), ...localTags].map((t) => t.toLowerCase());
+
+      const title = item.title?.toLowerCase() || "";
+      const caption = item.caption?.toLowerCase() || "";
+
+      const match =
+        type === "all"
+          ? title.includes(lower) ||
+          caption.includes(lower) ||
+          allTags.some((t) => t.includes(lower))
+          : type === "title"
+            ? title.includes(lower)
+            : type === "caption"
+              ? caption.includes(lower)
+              : allTags.some((t) => t.includes(lower));
+
+      if (match) results.push({ ...item, localTags });
     }
 
     setFilteredBookmarks(results);
@@ -201,24 +149,64 @@ export default function HomeScreen() {
 
   const handleSearchDebounced = useCallback(
     debounce((text: string, data?: any[]) => {
-      handleSearch(text, data || bookmarks);
+      if (!text.trim()) {
+        setFilteredBookmarks(data || bookmarks);
+      } else {
+        handleSearch(text, data || bookmarks, searchTypeRef.current); // ✅ Always use latest
+      }
     }, 300),
     [bookmarks]
   );
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const { posts } = await loadAllBookmarks(); // 🔥 Let loadAllBookmarks handle X logic
+
+
+      const enriched = await Promise.all(
+        posts.map(async (p) => {
+          const localTags = await getTagsForBookmark(p.title);
+          return { ...p, localTags };
+        })
+      );
+      setBookmarks(enriched);
+      handleSearchDebounced(searchText, enriched);
+      setError(null);
+    } catch (err) {
+      console.error("❌ Error loading bookmarks:", err);
+      setError("Failed to load bookmarks.");
+    }
+    setRefreshing(false);
+  };
+
+  const onEndReached = async () => {
+    if (loadingMore || refreshing) return;
+
+    setLoadingMore(true);
+    try {
+      const { newPosts } = await loadMoreBookmarks();
+      const enriched = await Promise.all(
+        newPosts.map(async (p) => {
+          const localTags = await getTagsForBookmark(p.title);
+          return { ...p, localTags };
+        })
+      );
+
+      setBookmarks((prev) => {
+        const updated = [...prev, ...enriched];
+        handleSearchDebounced(searchText, updated);
+        return updated;
+      });
+    } catch (err) {
+      console.error("📉 loadMoreBookmarks error:", err);
+    }
+    setLoadingMore(false);
+  };
+
   useEffect(() => {
     onRefresh();
-
-    const scrollToTopListener = () => {
-      listRef.current?.scrollToOffset({ offset: 0, animated: true });
-    };
-
-    eventBus.on("scrollToTop", scrollToTopListener);
-    return () => {
-      eventBus.off("scrollToTop", scrollToTopListener);
-    };
   }, []);
-
 
   useEffect(() => {
     if (!searchText.trim()) setFilteredBookmarks(bookmarks);
@@ -237,10 +225,7 @@ export default function HomeScreen() {
     };
 
     eventBus.on("refreshFeed", updateTagsOnEvent);
-
-    return () => {
-      eventBus.off("refreshFeed", updateTagsOnEvent);
-    };
+    return () => eventBus.off("refreshFeed", updateTagsOnEvent);
   }, [bookmarks]);
 
 
@@ -250,8 +235,18 @@ export default function HomeScreen() {
         <TopHeader
           onSearchTextChange={(text) => {
             setSearchText(text);
+            if (!text.trim()) {
+              setFilteredBookmarks(bookmarks);
+            }
             handleSearchDebounced(text);
           }}
+          onSearchTypeChange={(type) => {
+            setSearchType(type);
+            searchTypeRef.current = type; // ✅ Update ref immediately
+            handleSearchDebounced(searchText);
+          }}
+
+
         />
 
         {error && <Text style={[styles.error, { color: colors.notification }]}>{error}</Text>}
@@ -259,21 +254,21 @@ export default function HomeScreen() {
         <FlashList
           ref={listRef}
           data={filteredBookmarks}
-          keyExtractor={(item) => item.id}
+          keyExtractor={generateBookmarkKey}
+          extraData={{ autoplay, visibleIds }}
           renderItem={({ item, index }) => (
             <AnimatedBookmarkItem
               item={item}
               index={index}
               isVisible={visibleIds.includes(item.id)}
-              autoplay={autoplay} />
+              autoplay={autoplay}
+            />
           )}
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.5}
-          estimatedItemSize={300}
-          extraData={[visibleIds, autoplay, bookmarks]}
-          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+          estimatedItemSize={500}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -282,21 +277,20 @@ export default function HomeScreen() {
               tintColor={colors.primary}
             />
           }
+          ListFooterComponent={
+            loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null
+          }
           ListEmptyComponent={
             !refreshing && searchText.trim().length > 0 ? (
               <Text style={[styles.noResults, { color: colors.border }]}>No Results</Text>
             ) : null
           }
-          ListFooterComponent={
-            loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null
-          }
           contentContainerStyle={{ paddingBottom: 80 }}
+          removeClippedSubviews={false}
         />
       </View>
     </SafeAreaView>
   );
-
-
 }
 
 const styles = StyleSheet.create({

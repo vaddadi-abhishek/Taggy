@@ -5,7 +5,7 @@ import Constants from 'expo-constants';
 
 // Access environment variables from Constants.expoConfig.extra
 const { AUTHORIZATION_ENDPOINT, TOKEN_ENDPOINT, REDDIT_CLIENT_ID } = Constants.expoConfig?.extra || {};
-  
+
 console.log([AUTHORIZATION_ENDPOINT, TOKEN_ENDPOINT, REDDIT_CLIENT_ID])
 
 const printAsyncStorage = async () => {
@@ -79,12 +79,15 @@ const redditAuth = async (shouldConnect: boolean): Promise<boolean> => {
         });
 
         const tokenData = await tokenResponse.json();
-        console.log("✅ Reddit Token Response:", tokenData);
-
         // Save token for future use (like fetching saved posts)
         if (tokenData.access_token) {
+
           await AsyncStorage.setItem("reddit_token", tokenData.access_token);
-          console.log("✅ Token stored in AsyncStorage");
+
+          const check = await AsyncStorage.getItem("reddit_token");
+          console.log("✅ Token check from AsyncStorage:", check);
+
+          console.log("✅ Reddit Token stored in AsyncStorage");
           return true;
         } else {
           console.warn("❌ Token fetch failed:", tokenData);

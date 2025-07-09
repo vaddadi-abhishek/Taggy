@@ -80,6 +80,9 @@ export default function TagsScreen() {
             setEditModalVisible(false);
             setEditingTagName("");
             setEditingTagIndexModal(null);
+
+            eventBus.emit("tagsUpdated");
+
           },
         },
       ]
@@ -110,6 +113,7 @@ export default function TagsScreen() {
       if (!success) return triggerShake();
       setTags((prev) => [newName, ...prev]);
     }
+    eventBus.emit("tagsUpdated");
 
     setEditModalVisible(false);
     setEditingTagName("");

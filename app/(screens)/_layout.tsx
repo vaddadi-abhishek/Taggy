@@ -3,11 +3,20 @@ import { Tabs } from "expo-router";
 import { TouchableOpacity } from "react-native";
 import { useNavigationTheme } from "@/src/context/ThemeContext";
 import eventBus from "@/src/utils/eventBus";
+import { useEffect } from "react";
+import { preloadIcons } from "../preloadIcons";
+import { SplashScreen } from "expo-router";
 
 export default function RootLayout() {
   const navigationTheme = useNavigationTheme();
   const { colors } = navigationTheme;
   const customHeaderColor = navigationTheme.dark ? "#1f1f1f" : colors.card;
+  useEffect(() => {
+    (async () => {
+      await preloadIcons(); // Pre-load icons
+      SplashScreen.hideAsync(); // Hide splash screen
+    })();
+  }, []);
 
   return (
     <Tabs

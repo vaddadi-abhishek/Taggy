@@ -41,7 +41,7 @@ const fetchRedditPosts = async (
       username = await fetchUsername(accessToken);
     }
 
-    const url = `https://oauth.reddit.com/user/${username}/saved?limit=25${
+    const url = `https://oauth.reddit.com/user/${username}/saved?limit=100${
       after ? `&after=${after}` : ""
     }`;
 
