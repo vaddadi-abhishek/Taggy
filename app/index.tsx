@@ -18,8 +18,8 @@ export default function IndexScreen() {
   useEffect(() => {
     const checkToken = async () => {
       const redditToken = await AsyncStorage.getItem('reddit_token');
-      const twitterToken = await AsyncStorage.getItem('twitter_token');
-      if (redditToken || twitterToken) {
+
+      if (redditToken) {
         router.replace('/Home');
       } else {
         setLoading(false);
@@ -34,15 +34,6 @@ export default function IndexScreen() {
       router.replace('/Home');
     } else {
       console.warn('❌ Reddit login failed');
-    }
-  };
-
-  const startTwitterLogin = async () => {
-    const connected = await handleSocialConnect('twitter', true);
-    if (connected) {
-      router.replace('/Home');
-    } else {
-      console.warn('❌ Twitter login failed');
     }
   };
 
@@ -72,18 +63,7 @@ export default function IndexScreen() {
           />
           <Text style={styles.btnText}>Login with Reddit</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.fullBtn} onPress={startTwitterLogin}>
-          <Image
-            source={{
-              uri: 'https://img.icons8.com/?size=100&id=YfCbGWCWcuar&format=png&color=ffffff',
-            }}
-            style={styles.btnImg}
-          />
-          <Text style={styles.btnText}>Login with X</Text>
-        </TouchableOpacity>
       </View>
-
     </View>
   );
 }

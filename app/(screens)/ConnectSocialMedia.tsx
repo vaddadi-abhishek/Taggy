@@ -72,7 +72,7 @@ export default function ConnectSocialMedia() {
 
   const renderItem = ({ item }: { item: (typeof socialPlatforms)[0] }) => {
     const isConnected = connected[item.id];
-    const isSupported = ["reddit", "x"].includes(item.key.toLowerCase());
+    const isSupported = ["reddit"].includes(item.key.toLowerCase());
 
     return (
       <View
