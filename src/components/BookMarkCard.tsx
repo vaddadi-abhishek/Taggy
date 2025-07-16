@@ -24,6 +24,8 @@ import { useTheme } from "@/src/context/ThemeContext";
 import Toast from "react-native-toast-message";
 import PlatformIcon from "@/src/components/PlatformIcon";
 import eventBus from "@/src/utils/eventBus";
+import { useSearch } from "@/src/context/SearchContext";
+import { useNavigation } from "@react-navigation/native";
 
 type Props = {
   images?: string[];
@@ -61,6 +63,16 @@ export default function BookmarkCard({
   const [bookmarkTags, setBookmarkTags] = useState<string[]>(tags);
   const [activeIndex, setActiveIndex] = useState(0);
   const [imageHeights, setImageHeights] = useState<number[]>([]);
+
+  const { setSearchQuery, setSearchFilter, setSearching } = useSearch();
+  const navigation = useNavigation();
+
+  const handleTagSearch = (tag: string) => {
+    setSearchQuery(tag);
+    setSearchFilter("Tags");
+    setSearching(true);
+    navigation.navigate("Home");
+  };
 
   const handleScrollTo = (index: number) => {
     if (images && index >= 0 && index < images.length) {
@@ -305,7 +317,13 @@ export default function BookmarkCard({
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.tagText}>{tag}</Text>
+              <TouchableOpacity
+                key={index}
+                style={styles.tagBadge}
+                onPress={() => handleTagSearch(tag)}
+              >
+                <Text style={styles.tagText}>{tag}</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           ))}
 
@@ -402,6 +420,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
   },
   tagText: {
     fontSize: 12,

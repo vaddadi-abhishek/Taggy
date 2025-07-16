@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import parseRedditPosts from "@/src/utils/reddit/parseRedditPosts";
+import { getValidAccessToken } from "@/src/utils/RedditAuth";
 
 const fetchUsername = async (token: string): Promise<string> => {
   const res = await fetch("https://oauth.reddit.com/api/v1/me", {
@@ -25,7 +26,7 @@ const fetchRedditPosts = async (
   error?: string;
 }> => {
   try {
-    let accessToken = await AsyncStorage.getItem("reddit_token");
+    const accessToken = await getValidAccessToken();
 
     if (!accessToken) {
       return {
@@ -55,6 +56,16 @@ const fetchRedditPosts = async (
     if (!response.ok) {
       const errData = await response.json();
       console.error("Reddit API error:", errData);
+
+      // If error is due to expired token, clear saved token
+      if (response.status === 401) {
+        await AsyncStorage.multiRemove([
+          "reddit_token",
+          "reddit_refresh_token",
+          "reddit_token_expiry",
+        ]);
+      }
+
       return {
         posts: [],
         after: null,
@@ -65,6 +76,7 @@ const fetchRedditPosts = async (
 
     const json = await response.json();
     const posts = parseRedditPosts(json.data.children);
+
     return {
       posts,
       after: json.data.after,

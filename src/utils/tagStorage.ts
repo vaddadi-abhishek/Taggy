@@ -89,3 +89,22 @@ export async function removeTagFromBookmark(bookmarkId: string, tag: string): Pr
   }
 }
 
+export const getTagsWithCounts = async (): Promise<{ name: string; count: number }[]> => {
+  const tags = await getAllTags();
+  const rawMap = await AsyncStorage.getItem(BOOKMARK_TAG_MAP_KEY);
+  const map = rawMap ? JSON.parse(rawMap) : {};
+
+  const tagCounts: Record<string, number> = {};
+
+  Object.values(map).forEach((tagList: string[]) => {
+    tagList.forEach((tag) => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+
+  return tags.map((name) => ({
+    name,
+    count: tagCounts[name] || 0,
+  }));
+};
+

@@ -17,15 +17,19 @@ import {
   addGlobalTag,
   deleteGlobalTag,
   updateGlobalTag,
+  getTagsWithCounts,
 } from "@/src/utils/tagStorage";
 import { useTheme } from "@/src/context/ThemeContext";
 import eventBus from "@/src/utils/eventBus";
+import { useSearch } from "@/src/context/SearchContext";
+import { useNavigation } from "@react-navigation/native";
+import Toast from "react-native-toast-message";
 
 export default function TagsScreen() {
   const theme = useTheme();
   const { colors } = theme.navigationTheme;
 
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<{ name: string; count: number }[]>([]);
   const [searchText, setSearchText] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -34,6 +38,16 @@ export default function TagsScreen() {
   const [editingTagName, setEditingTagName] = useState("");
   const [editingTagIndexModal, setEditingTagIndexModal] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  const { setSearchQuery, setSearchFilter, setSearching } = useSearch();
+  const navigation = useNavigation();
+
+  const handleTagSearch = (tag: string) => {
+    setSearchQuery(tag);
+    setSearchFilter("Tags");
+    setSearching(true);
+    navigation.navigate("Home");
+  };
 
   const triggerShake = () => {
     Animated.sequence([
@@ -46,7 +60,7 @@ export default function TagsScreen() {
   };
 
   const loadTags = async () => {
-    const loaded = await getAllTags();
+    const loaded = await getTagsWithCounts();
     setTags(loaded);
   };
 
@@ -76,7 +90,7 @@ export default function TagsScreen() {
           style: "destructive",
           onPress: async () => {
             await deleteGlobalTag(tag);
-            setTags((prev) => prev.filter((t) => t !== tag));
+            setTags((prev) => prev.filter((t) => t.name !== tag));
             setEditModalVisible(false);
             setEditingTagName("");
             setEditingTagIndexModal(null);
@@ -88,7 +102,7 @@ export default function TagsScreen() {
 
   const handleEdit = (index: number) => {
     setIsEditing(true);
-    setEditingTagName(tags[index]);
+    setEditingTagName(tags[index].name);
     setEditingTagIndexModal(index);
     setEditModalVisible(true);
   };
@@ -98,17 +112,28 @@ export default function TagsScreen() {
     if (newName.length < 3) return triggerShake();
 
     if (isEditing && editingTagIndexModal !== null) {
-      const oldName = tags[editingTagIndexModal];
-      const success = await updateGlobalTag(oldName, newName);
+      const oldTag = tags[editingTagIndexModal].name;
+      const count = tags[editingTagIndexModal].count;
+
+      const success = await updateGlobalTag(oldTag, newName);
       if (!success) return triggerShake();
 
       const updated = [...tags];
-      updated[editingTagIndexModal] = newName;
+      updated[editingTagIndexModal] = { name: newName, count };
       setTags(updated);
+
+      Toast.show({
+        type: "success",
+        text1: `Tag renamed to "${newName}"`,
+        position: "bottom",
+      });
+
+      // 🔥 Notify HomeScreen to update tag data in bookmarks
+      eventBus.emit("refreshFeed");
     } else {
       const success = await addGlobalTag(newName);
       if (!success) return triggerShake();
-      setTags((prev) => [newName, ...prev]);
+      setTags((prev) => [{ name: newName, count: 0 }, ...prev]);
     }
 
     setEditModalVisible(false);
@@ -116,6 +141,7 @@ export default function TagsScreen() {
     setEditingTagIndexModal(null);
     setIsEditing(false);
   };
+
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -135,10 +161,7 @@ export default function TagsScreen() {
           onChangeText={setSearchText}
         />
         {searchText.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearIcon}
-            onPress={() => setSearchText("")}
-          >
+          <TouchableOpacity style={styles.clearIcon} onPress={() => setSearchText("")}>
             <Ionicons name="close-circle" size={20} color="#aaa" />
           </TouchableOpacity>
         )}
@@ -148,30 +171,27 @@ export default function TagsScreen() {
         Your Tags ({tags.length})
       </Text>
 
-      <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-      >
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}>
         {tags
-          .filter((tag) => tag.toLowerCase().includes(searchText.toLowerCase()))
+          .filter((tag) => tag.name?.toLowerCase().includes(searchText.toLowerCase()))
           .map((tag, index) => (
             <View
-              key={tag}
-              style={[
-                styles.tagRow,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                },
-              ]}
+              key={tag.name}
+              style={[styles.tagRow, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.tagText, { color: colors.text }]}>{tag}</Text>
-              </View>
+              <TouchableOpacity onPress={() => handleTagSearch(tag.name)}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Text style={[styles.tagText, { color: colors.text }]}>{tag.name}</Text>
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countText}>{tag.count}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
               <View style={styles.actions}>
                 <TouchableOpacity onPress={() => handleEdit(index)}>
                   <Ionicons name="create-outline" size={20} color="#888" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(tag)}>
+                <TouchableOpacity onPress={() => handleDelete(tag.name)}>
                   <Ionicons name="trash-outline" size={20} color="#ff5252" />
                 </TouchableOpacity>
               </View>
@@ -350,13 +370,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 3,
   },
-  searchInputWrapper: {
-    flex: 1,
-    position: "relative",
-  },
   clearIcon: {
     position: "absolute",
     right: 10,
     top: 10,
+  },
+  countBadge: {
+    backgroundColor: "#6366f1",
+    borderRadius: 999,
+    marginLeft: 6,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
+  },
+  countText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

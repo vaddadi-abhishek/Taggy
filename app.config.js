@@ -27,7 +27,6 @@ export default {
             {
               scheme: "taggy",
               host: "redirect",
-              pathPrefix: "/oauth",
             },
           ],
           category: ["BROWSABLE", "DEFAULT"],
@@ -61,8 +60,6 @@ export default {
       "eas": {
         "projectId": "613b6096-e5c2-4e51-82c1-af485ab6848a"
       },
-      TWITTER_CLIENT_ID: process.env.TWITTER_CLIENT_ID,
-      TWITTER_CLIENT_SECRET: process.env.TWITTER_CLIENT_SECRET,
     },
   },
 };

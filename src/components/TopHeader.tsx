@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,23 +9,28 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Feather from "@expo/vector-icons/Feather";
-import { useTheme } from "@/src/context/ThemeContext"; // ✅ Custom theme hook
+import { useTheme } from "@/src/context/ThemeContext";
+import { useSearch } from "@/src/context/SearchContext";
 
-interface Props {
-  onSearchTextChange?: (text: string) => void;
-}
-
-export default function TopHeader({ onSearchTextChange }: Props) {
-  const [searching, setSearching] = useState(false);
+export default function TopHeader() {
   const searchInputRef = useRef<TextInput>(null);
-  const { navigationTheme, dark } = useTheme(); // ✅ Use dark flag
+  const { navigationTheme, dark } = useTheme();
   const { colors } = navigationTheme;
+
+  const {
+    searchQuery,
+    setSearchQuery,
+    searching,
+    setSearching,
+    searchFilter,
+    setSearchFilter,
+  } = useSearch();
 
   useEffect(() => {
     const backAction = () => {
       if (searching) {
         setSearching(false);
-        onSearchTextChange?.("");
+        setSearchQuery("");
         return true;
       }
       return false;
@@ -50,8 +55,10 @@ export default function TopHeader({ onSearchTextChange }: Props) {
 
   const handleClose = () => {
     setSearching(false);
-    onSearchTextChange?.("");
+    setSearchQuery("");
   };
+
+  const filters: ("All" | "Tags" | "Title" | "Caption")[] = ["All", "Tags", "Title", "Caption"];
 
   return (
     <View
@@ -59,38 +66,67 @@ export default function TopHeader({ onSearchTextChange }: Props) {
         styles.topBar,
         {
           borderBottomColor: colors.border,
-          backgroundColor: dark ? "#1f1f1f" : colors.background, // ✅ dark mode fix
+          backgroundColor: dark ? "#1f1f1f" : colors.background,
         },
       ]}
     >
       {!searching ? (
-        <>
+        <View style={styles.headerRow}>
           <Text style={[styles.logo, { color: colors.primary }]}>
-            <Feather name="bookmark" size={24} color={colors.primary} /> Taggy
+            <Feather name="bookmark" size={22} color={colors.primary} /> Taggy
           </Text>
           <TouchableOpacity onPress={() => setSearching(true)}>
             <Ionicons name="search" size={24} color={colors.text} />
           </TouchableOpacity>
-        </>
+        </View>
       ) : (
-        <>
-          <TextInput
-            ref={searchInputRef}
-            style={[
-              styles.searchInput,
-              {
-                backgroundColor: colors.card,
-                color: colors.text,
-              },
-            ]}
-            placeholder="Search..."
-            placeholderTextColor={colors.text}
-            onChangeText={onSearchTextChange}
-          />
-          <TouchableOpacity onPress={handleClose}>
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
-        </>
+        <View>
+          <View style={styles.searchRow}>
+            <TextInput
+              ref={searchInputRef}
+              style={[
+                styles.searchInput,
+                {
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                },
+              ]}
+              placeholder="Search..."
+              placeholderTextColor={colors.text}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <TouchableOpacity onPress={handleClose} style={{ marginLeft: 8 }}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.filterRow}>
+            {filters.map((filter) => (
+              <TouchableOpacity
+                key={filter}
+                onPress={() => setSearchFilter(filter)}
+                style={[
+                  styles.filterButton,
+                  {
+                    backgroundColor:
+                      searchFilter === filter ? colors.primary : colors.card,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: searchFilter === filter ? "#fff" : colors.text,
+                    fontWeight: "600",
+                    fontSize: 12,
+                  }}
+                >
+                  {filter}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
       )}
     </View>
   );
@@ -98,22 +134,38 @@ export default function TopHeader({ onSearchTextChange }: Props) {
 
 const styles = StyleSheet.create({
   topBar: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
   },
   logo: {
     fontSize: 22,
     fontWeight: "bold",
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   searchInput: {
     flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    marginRight: 10,
+  },
+  filterRow: {
+    flexDirection: "row",
+    marginTop: 8,
+    gap: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
   },
 });

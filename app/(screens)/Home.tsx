@@ -1,6 +1,6 @@
 import BookmarkCard from "@/src/components/BookMarkCard";
 import TopHeader from "@/src/components/TopHeader";
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -11,12 +11,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import eventBus from "@/src/utils/eventBus";
-import debounce from "lodash.debounce";
 import { getTagsForBookmark } from "@/src/utils/tagStorage";
 import { useTheme } from "@/src/context/ThemeContext";
 import { FlashList, ViewToken } from "@shopify/flash-list";
 import fetchRedditPosts from "@/src/utils/reddit/fetchRedditPosts";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSearch } from "@/src/context/SearchContext";
+
 
 const AnimatedBookmarkItem = ({
   item,
@@ -73,16 +74,32 @@ const AnimatedBookmarkItem = ({
 export default function HomeScreen() {
   const { colors } = useTheme().navigationTheme;
   const [bookmarks, setBookmarks] = useState<any[]>([]);
-  const [filteredBookmarks, setFilteredBookmarks] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [after, setAfter] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
-  const [searchText, setSearchText] = useState("");
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
   const listRef = useRef<FlashList<any>>(null);
   const [autoplay, setAutoplay] = useState(true);
+
+  const { searchQuery, searchFilter } = useSearch();
+
+  const filtered = bookmarks.filter((item) => {
+    const query = searchQuery.toLowerCase();
+    const allTags = [...(item.tags || []), ...(item.localTags || [])];
+
+    if (searchFilter === "Tags") return allTags.some((tag) => tag.toLowerCase().includes(query));
+    if (searchFilter === "Title") return item.title.toLowerCase().includes(query);
+    if (searchFilter === "Caption") return item.caption.toLowerCase().includes(query);
+
+    return (
+      item.title.toLowerCase().includes(query) ||
+      item.caption.toLowerCase().includes(query) ||
+      allTags.some((tag) => tag.toLowerCase().includes(query))
+    );
+  });
+
 
   useEffect(() => {
     // Load autoplay setting on mount
@@ -145,12 +162,12 @@ export default function HomeScreen() {
       if (afterParam) {
         setBookmarks((prev) => {
           const updated = [...prev, ...postsWithLocalTags];
-          handleSearchDebounced(searchText, updated);
+
           return updated;
         });
       } else {
         setBookmarks(postsWithLocalTags);
-        handleSearchDebounced(searchText, postsWithLocalTags);
+
       }
 
       setAfter(newAfter);
@@ -159,7 +176,6 @@ export default function HomeScreen() {
       if (err.message === "NO_AUTH") {
         setError("Please, Connect Your Reddit Account 😄");
         setBookmarks([]);
-        setFilteredBookmarks([]);
       } else {
         console.error("Load error:", err);
         setError("Could not fetch Reddit data.");
@@ -182,30 +198,6 @@ export default function HomeScreen() {
     }
   };
 
-  const handleSearch = async (text: string, data: any[] = bookmarks) => {
-    setSearchText(text);
-    if (!text.trim()) return setFilteredBookmarks(data);
-
-    const lower = text.toLowerCase();
-    const results: any[] = [];
-
-    for (const item of data) {
-      const localTags = await getTagsForBookmark(item.title);
-      const allTags = [...(item.tags || []), ...localTags];
-      const content = `${item.title} ${item.caption} ${allTags.join(" ")}`.toLowerCase();
-      if (content.includes(lower)) results.push(item);
-    }
-
-    setFilteredBookmarks(results);
-  };
-
-  const handleSearchDebounced = useCallback(
-    debounce((text: string, data?: any[]) => {
-      handleSearch(text, data || bookmarks);
-    }, 300),
-    [bookmarks]
-  );
-
   useEffect(() => {
     onRefresh();
 
@@ -219,46 +211,47 @@ export default function HomeScreen() {
     };
   }, []);
 
-
-  useEffect(() => {
-    if (!searchText.trim()) setFilteredBookmarks(bookmarks);
-  }, [searchText, bookmarks]);
-
   useEffect(() => {
     const updateTagsOnEvent = async () => {
       const updated = await Promise.all(
         bookmarks.map(async (b) => {
           const localTags = await getTagsForBookmark(b.title);
-          return { ...b, localTags };
+
+          // 🧠 This ensures tag rename reflects in original `item.tags`
+          const allTags = [...(b.tags || [])];
+          const updatedTags = allTags.map((tag) => {
+            const localMatch = localTags.find((lt) => lt.toLowerCase() === tag.toLowerCase());
+            return localMatch || tag;
+          });
+
+          return {
+            ...b,
+            tags: [...new Set(updatedTags)],
+            localTags,
+          };
         })
       );
       setBookmarks(updated);
-      handleSearchDebounced(searchText, updated);
     };
 
     eventBus.on("refreshFeed", updateTagsOnEvent);
-
     return () => {
       eventBus.off("refreshFeed", updateTagsOnEvent);
     };
   }, [bookmarks]);
 
 
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={{ flex: 1 }}>
-        <TopHeader
-          onSearchTextChange={(text) => {
-            setSearchText(text);
-            handleSearchDebounced(text);
-          }}
-        />
+        <TopHeader />
 
         {error && <Text style={[styles.error, { color: colors.notification }]}>{error}</Text>}
 
         <FlashList
           ref={listRef}
-          data={filteredBookmarks}
+          data={filtered}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => (
             <AnimatedBookmarkItem
@@ -283,9 +276,10 @@ export default function HomeScreen() {
             />
           }
           ListEmptyComponent={
-            !refreshing && searchText.trim().length > 0 ? (
+            !refreshing && searchQuery.trim().length > 0 ? (
               <Text style={[styles.noResults, { color: colors.border }]}>No Results</Text>
             ) : null
+
           }
           ListFooterComponent={
             loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null
