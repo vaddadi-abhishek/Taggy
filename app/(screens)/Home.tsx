@@ -10,14 +10,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import eventBus from "@/src/utils/eventBus";
-import { getTagsForBookmark } from "@/src/utils/tagStorage";
 import { useTheme } from "@/src/context/ThemeContext";
-import { FlashList, ViewToken } from "@shopify/flash-list";
-import fetchRedditPosts from "@/src/utils/reddit/fetchRedditPosts";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSearch } from "@/src/context/SearchContext";
-
+import { FlashList, ViewToken } from "@shopify/flash-list";
 
 const AnimatedBookmarkItem = ({
   item,
@@ -52,7 +48,7 @@ const AnimatedBookmarkItem = ({
 
   return (
     <Animated.View
-      key={`${item.id}-${(item.localTags || []).join(",")}`} // 🔥 Force re-render on tag change
+      key={`${item.id}-${(item.localTags || []).join(",")}`}
       style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
     >
       <BookmarkCard
@@ -74,55 +70,60 @@ const AnimatedBookmarkItem = ({
 export default function HomeScreen() {
   const { colors } = useTheme().navigationTheme;
   const [bookmarks, setBookmarks] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [after, setAfter] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
   const listRef = useRef<FlashList<any>>(null);
   const [autoplay, setAutoplay] = useState(true);
 
   const { searchQuery, searchFilter } = useSearch();
 
-  const filtered = bookmarks.filter((item) => {
-    const query = searchQuery.toLowerCase();
-    const allTags = [...(item.tags || []), ...(item.localTags || [])];
-
-    if (searchFilter === "Tags") return allTags.some((tag) => tag.toLowerCase().includes(query));
-    if (searchFilter === "Title") return item.title.toLowerCase().includes(query);
-    if (searchFilter === "Caption") return item.caption.toLowerCase().includes(query);
-
-    return (
-      item.title.toLowerCase().includes(query) ||
-      item.caption.toLowerCase().includes(query) ||
-      allTags.some((tag) => tag.toLowerCase().includes(query))
-    );
-  });
-
+  const loadSavedFromStorage = async () => {
+    try {
+      const data = await AsyncStorage.getItem("reddit_saved_posts");
+      if (data) {
+        const parsed = JSON.parse(data);
+        setBookmarks(parsed);
+      } else {
+        setBookmarks([]);
+      }
+    } catch (err) {
+      console.error("Error loading saved posts from AsyncStorage", err);
+    }
+  };
 
   useEffect(() => {
-    // Load autoplay setting on mount
     AsyncStorage.getItem("autoplay_videos").then((value) => {
       if (value !== null) setAutoplay(value === "true");
     });
 
-    // Listen for updates from Settings screen
-    eventBus.on("autoplayChanged", setAutoplay);
-
-    const scrollToTopListener = () => {
-      listRef.current?.scrollToOffset({ offset: 0, animated: true });
-    };
-
-    eventBus.on("scrollToTop", scrollToTopListener);
-
-    return () => {
-      eventBus.off("autoplayChanged", setAutoplay);
-      eventBus.off("scrollToTop", scrollToTopListener);
-    };
+    loadSavedFromStorage();
   }, []);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadSavedFromStorage();
+    setRefreshing(false);
+  };
 
+  const normalize = (text: string) =>
+    (text || "").toLowerCase().replace(/[^a-z0-9 ]/gi, "");
+
+  const filtered = bookmarks.filter((item) => {
+    const q = normalize(searchQuery);
+    const allTags = [...(item.tags || []), ...(item.localTags || [])].map(normalize);
+    const title = normalize(item.title);
+    const caption = normalize(item.caption);
+
+    if (searchFilter === "Tags") return allTags.some((tag) => tag.includes(q));
+    if (searchFilter === "Title") return title.includes(q);
+    if (searchFilter === "Caption") return caption.includes(q);
+
+    return (
+      title.includes(q) ||
+      caption.includes(q) ||
+      allTags.some((tag) => tag.includes(q))
+    );
+  });
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -135,171 +136,47 @@ export default function HomeScreen() {
     itemVisiblePercentThreshold: 60,
   }).current;
 
-  const fetchUsername = async (token: string) => {
-    const res = await fetch("https://oauth.reddit.com/api/v1/me", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "taggy-app/1.0 (by u/South_Pencil)",
-      },
-    });
-    if (!res.ok) throw new Error("User fetch failed");
-    const data = await res.json();
-    return data.name;
-  };
-
-  const loadSavedPosts = async (afterParam: string | null = null) => {
-    try {
-      const { posts, after: newAfter, username: uname } = await fetchRedditPosts(afterParam, username);
-      setUsername(uname);
-
-      const postsWithLocalTags = await Promise.all(
-        posts.map(async (p) => {
-          const localTags = await getTagsForBookmark(p.title);
-          return { ...p, localTags };
-        })
-      );
-
-      if (afterParam) {
-        setBookmarks((prev) => {
-          const updated = [...prev, ...postsWithLocalTags];
-
-          return updated;
-        });
-      } else {
-        setBookmarks(postsWithLocalTags);
-
-      }
-
-      setAfter(newAfter);
-      setError(null);
-    } catch (err: any) {
-      if (err.message === "NO_AUTH") {
-        setError("Please, Connect Your Reddit Account 😄");
-        setBookmarks([]);
-      } else {
-        console.error("Load error:", err);
-        setError("Could not fetch Reddit data.");
-      }
-    }
-  };
-
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadSavedPosts(null);
-    setRefreshing(false);
-  };
-
-  const onEndReached = async () => {
-    if (after && !loadingMore && !refreshing) {
-      setLoadingMore(true);
-      await loadSavedPosts(after);
-      setLoadingMore(false);
-    }
-  };
-
-  useEffect(() => {
-    onRefresh();
-
-    const scrollToTopListener = () => {
-      listRef.current?.scrollToOffset({ offset: 0, animated: true });
-    };
-
-    eventBus.on("scrollToTop", scrollToTopListener);
-    return () => {
-      eventBus.off("scrollToTop", scrollToTopListener);
-    };
-  }, []);
-
-  useEffect(() => {
-    const updateTagsOnEvent = async () => {
-      const updated = await Promise.all(
-        bookmarks.map(async (b) => {
-          const localTags = await getTagsForBookmark(b.title);
-
-          // 🧠 This ensures tag rename reflects in original `item.tags`
-          const allTags = [...(b.tags || [])];
-          const updatedTags = allTags.map((tag) => {
-            const localMatch = localTags.find((lt) => lt.toLowerCase() === tag.toLowerCase());
-            return localMatch || tag;
-          });
-
-          return {
-            ...b,
-            tags: [...new Set(updatedTags)],
-            localTags,
-          };
-        })
-      );
-      setBookmarks(updated);
-    };
-
-    eventBus.on("refreshFeed", updateTagsOnEvent);
-    return () => {
-      eventBus.off("refreshFeed", updateTagsOnEvent);
-    };
-  }, [bookmarks]);
-
-
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ flex: 1 }}>
-        <TopHeader />
+      <TopHeader />
 
-        {error && <Text style={[styles.error, { color: colors.notification }]}>{error}</Text>}
-
-        <FlashList
-          ref={listRef}
-          data={filtered}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <AnimatedBookmarkItem
-              item={item}
-              index={index}
-              isVisible={visibleIds.includes(item.id)}
-              autoplay={autoplay} />
-          )}
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.5}
-          estimatedItemSize={300}
-          extraData={[visibleIds, autoplay, bookmarks]}
-          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-          ListEmptyComponent={
-            !refreshing && searchQuery.trim().length > 0 ? (
-              <Text style={[styles.noResults, { color: colors.border }]}>No Results</Text>
-            ) : null
-
-          }
-          ListFooterComponent={
-            loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null
-          }
-          contentContainerStyle={{ paddingBottom: 80 }}
-        />
-      </View>
+      <FlashList
+        ref={listRef}
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item, index }) => (
+          <AnimatedBookmarkItem
+            item={item}
+            index={index}
+            isVisible={visibleIds.includes(item.id)}
+            autoplay={autoplay}
+          />
+        )}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        estimatedItemSize={300}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        ListEmptyComponent={
+          !refreshing && searchQuery.trim().length > 0 ? (
+            <Text style={[styles.noResults, { color: colors.border }]}>
+              No Results Found
+            </Text>
+          ) : null
+        }
+        contentContainerStyle={{ paddingBottom: 80 }}
+      />
     </SafeAreaView>
   );
-
-
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  error: {
-    textAlign: "center",
-    marginVertical: 10,
-    fontSize: 14,
-  },
   noResults: {
     textAlign: "center",
     marginTop: 20,
