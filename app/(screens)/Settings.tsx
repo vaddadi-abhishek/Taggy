@@ -17,12 +17,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useTheme } from "@/src/context/ThemeContext";
 import eventBus from "@/src/utils/eventBus";
+import Modal from "react-native-modal";
 
 const SettingsScreen = () => {
   const { theme, mode, setThemeMode } = useTheme();
   const isDarkMode = theme === "dark";
   const styles = getStyles(isDarkMode);
   const [autoplayEnabled, setAutoplayEnabled] = useState(true);
+  const [themeModalVisible, setThemeModalVisible] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem("autoplay_videos").then((value) => {
@@ -47,12 +49,9 @@ const SettingsScreen = () => {
         style: "destructive",
         onPress: async () => {
           try {
-            await AsyncStorage.multiRemove([
-              'reddit_token',
-            ])
+            await AsyncStorage.multiRemove(["reddit_token"]);
             router.replace("/");
-          }
-          catch (err) {
+          } catch (err) {
             console.error("Logout failed:", err);
             Alert.alert("Error", "Failed to logout properly.");
           }
@@ -82,33 +81,16 @@ const SettingsScreen = () => {
     ]);
   };
 
-  const showThemeSelector = () => {
-    Alert.alert(
-      "Select Theme",
-      "Choose your preferred appearance mode:",
-      [
-        {
-          text: "Light",
-          onPress: () => setThemeMode("light"),
-        },
-        {
-          text: "Dark",
-          onPress: () => setThemeMode("dark"),
-        },
-        {
-          text: "Default (System)",
-          onPress: () => setThemeMode("default"),
-        },
-        { text: "Cancel", style: "cancel" },
-      ],
-      { cancelable: true }
-    );
+  const selectTheme = async (newMode: string) => {
+    setThemeMode(newMode);
+    await AsyncStorage.setItem("theme_mode", newMode);
+    setThemeModalVisible(false);
   };
 
   const handleExportBookmarks = async () => {
     try {
       const savedPostsRaw = await AsyncStorage.getItem("reddit_saved_posts");
-      const userTagsRaw = await AsyncStorage.getItem("user_tags"); // Only if this key actually exists
+      const userTagsRaw = await AsyncStorage.getItem("user_tags");
 
       const exportData = {
         reddit_saved_posts: JSON.parse(savedPostsRaw || "[]"),
@@ -133,11 +115,9 @@ const SettingsScreen = () => {
     }
   };
 
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Preferences */}
         <Text style={styles.section}>PREFERENCES</Text>
         <View style={styles.card}>
           <TouchableOpacity
@@ -159,7 +139,7 @@ const SettingsScreen = () => {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.row} onPress={showThemeSelector}>
+          <TouchableOpacity style={styles.row} onPress={() => setThemeModalVisible(true)}>
             <Feather name="moon" size={22} color="#8e44ad" />
             <View style={[styles.textWrapper, { flex: 1 }]}>
               <Text style={styles.title}>Theme</Text>
@@ -172,7 +152,6 @@ const SettingsScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Media */}
         <Text style={styles.section}>MEDIA</Text>
         <View style={styles.card}>
           <View style={styles.row}>
@@ -180,9 +159,7 @@ const SettingsScreen = () => {
             <View style={[styles.textWrapper, { flex: 1 }]}>
               <Text style={styles.title}>Autoplay Videos</Text>
               <Text style={styles.sub}>
-                {autoplayEnabled
-                  ? "Videos play automatically"
-                  : "Videos require tap"}
+                {autoplayEnabled ? "Videos play automatically" : "Videos require tap"}
               </Text>
             </View>
             <Switch
@@ -194,7 +171,6 @@ const SettingsScreen = () => {
           </View>
         </View>
 
-        {/* export settings */}
         <Text style={styles.section}>EXPORT</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.row} onPress={handleExportBookmarks}>
@@ -206,7 +182,6 @@ const SettingsScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* About */}
         <Text style={styles.section}>ABOUT</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.row}>
@@ -241,7 +216,6 @@ const SettingsScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Privacy & Security */}
         <Text style={styles.section}>PRIVACY & SECURITY</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.row} onPress={handleLogout}>
@@ -253,6 +227,62 @@ const SettingsScreen = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Bottom Sheet Modal for Theme Selection */}
+      <Modal
+        isVisible={themeModalVisible}
+        onBackdropPress={() => setThemeModalVisible(false)}
+        style={{ justifyContent: "flex-end", margin: 0 }}
+      >
+        <View
+          style={{
+            backgroundColor: isDarkMode ? "#1e1e1e" : "#fff",
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            paddingVertical: 16,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "600",
+              textAlign: "center",
+              color: isDarkMode ? "#fff" : "#333",
+              marginBottom: 10,
+            }}
+          >
+            Choose Theme
+          </Text>
+
+          {["light", "dark", "default"].map((modeOption) => {
+            const isSelected = mode === modeOption;
+            return (
+              <TouchableOpacity
+                key={modeOption}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingVertical: 14,
+                  paddingHorizontal: 20,
+                  justifyContent: "space-between",
+                }}
+                onPress={() => selectTheme(modeOption)}
+              >
+                <Text
+                  style={{
+                    fontSize: 15,
+                    color: isDarkMode ? "#fff" : "#222",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {modeOption === "default" ? "System Default" : modeOption}
+                </Text>
+                {isSelected && <Feather name="check" size={20} color="#9b59b6" />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
