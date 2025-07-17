@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import parseRedditPosts from "@/src/utils/reddit/parseRedditPosts";
 import { getValidAccessToken } from "@/src/utils/RedditAuth";
 
+const SAVED_POSTS_KEY = "reddit_saved_posts";
+
 const fetchUsername = async (token: string): Promise<string> => {
   const res = await fetch("https://oauth.reddit.com/api/v1/me", {
     headers: {
@@ -14,6 +16,24 @@ const fetchUsername = async (token: string): Promise<string> => {
 
   const data = await res.json();
   return data.name;
+};
+
+const readSavedPosts = async (): Promise<any[]> => {
+  try {
+    const raw = await AsyncStorage.getItem(SAVED_POSTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeSavedPosts = async (posts: any[]) => {
+  await AsyncStorage.setItem(SAVED_POSTS_KEY, JSON.stringify(posts));
+};
+
+const mergePosts = (existing: any[], incoming: any[]): any[] => {
+  const existingIds = new Set(existing.map((p) => p.id));
+  return [...existing, ...incoming.filter((p) => !existingIds.has(p.id))];
 };
 
 const fetchRedditPosts = async (
@@ -42,7 +62,7 @@ const fetchRedditPosts = async (
       username = await fetchUsername(accessToken);
     }
 
-    const url = `https://oauth.reddit.com/user/${username}/saved?limit=25${
+    const url = `https://oauth.reddit.com/user/${username}/saved?limit=100${
       after ? `&after=${after}` : ""
     }`;
 
@@ -57,7 +77,6 @@ const fetchRedditPosts = async (
       const errData = await response.json();
       console.error("Reddit API error:", errData);
 
-      // If error is due to expired token, clear saved token
       if (response.status === 401) {
         await AsyncStorage.multiRemove([
           "reddit_token",
@@ -75,10 +94,14 @@ const fetchRedditPosts = async (
     }
 
     const json = await response.json();
-    const posts = parseRedditPosts(json.data.children);
+    const newPosts = parseRedditPosts(json.data.children);
+
+    const existingPosts = await readSavedPosts();
+    const mergedPosts = mergePosts(existingPosts, newPosts);
+    await writeSavedPosts(mergedPosts);
 
     return {
-      posts,
+      posts: mergedPosts,
       after: json.data.after,
       username,
     };

@@ -1,3 +1,5 @@
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import React, { useState, useEffect } from "react";
 import {
   Alert,
@@ -59,159 +61,200 @@ const SettingsScreen = () => {
     ]);
   };
 
-const handleClearTags = () => {
-  Alert.alert("Clear Tags", "Delete all your created tags?", [
-    { text: "Cancel", style: "cancel" },
-    {
-      text: "Yes",
-      style: "destructive",
-      onPress: async () => {
-        try {
-          await AsyncStorage.multiRemove(["user_tags", "bookmark_tag_map"]);
-          DeviceEventEmitter.emit("globalTagsCleared");
-          eventBus.emit("refreshFeed");
-          Alert.alert("Success", "All created tags are cleared.");
-        } catch (error) {
-          console.error("Failed to clear global tags:", error);
-          Alert.alert("Error", "Failed to clear created tags.");
-        }
-      },
-    },
-  ]);
-};
-
-const showThemeSelector = () => {
-  Alert.alert(
-    "Select Theme",
-    "Choose your preferred appearance mode:",
-    [
-      {
-        text: "Light",
-        onPress: () => setThemeMode("light"),
-      },
-      {
-        text: "Dark",
-        onPress: () => setThemeMode("dark"),
-      },
-      {
-        text: "Default (System)",
-        onPress: () => setThemeMode("default"),
-      },
+  const handleClearTags = () => {
+    Alert.alert("Clear Tags", "Delete all your created tags?", [
       { text: "Cancel", style: "cancel" },
-    ],
-    { cancelable: true }
-  );
-};
-
-return (
-  <SafeAreaView style={styles.safeArea}>
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Preferences */}
-      <Text style={styles.section}>PREFERENCES</Text>
-      <View style={styles.card}>
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => router.push("/ConnectSocialMedia")}
-        >
-          <MaterialIcons name="link" size={22} color="#3573D1" />
-          <View style={styles.textWrapper}>
-            <Text style={styles.title}>Connected Accounts</Text>
-            <Text style={styles.sub}>Manage Reddit connection</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.row} onPress={handleClearTags}>
-          <Feather name="tag" size={22} color="#E67E22" />
-          <View style={styles.textWrapper}>
-            <Text style={styles.title}>Clear All Tags</Text>
-            <Text style={styles.sub}>Remove all saved manual tags</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.row} onPress={showThemeSelector}>
-          <Feather name="moon" size={22} color="#8e44ad" />
-          <View style={[styles.textWrapper, { flex: 1 }]}>
-            <Text style={styles.title}>Theme</Text>
-            <Text style={styles.sub}>
-              {mode === "default"
-                ? "System Default"
-                : mode.charAt(0).toUpperCase() + mode.slice(1)}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      {/* Media */}
-      <Text style={styles.section}>MEDIA</Text>
-      <View style={styles.card}>
-        <View style={styles.row}>
-          <Feather name="video" size={22} color="#9b59b6" />
-          <View style={[styles.textWrapper, { flex: 1 }]}>
-            <Text style={styles.title}>Autoplay Videos</Text>
-            <Text style={styles.sub}>
-              {autoplayEnabled
-                ? "Videos play automatically"
-                : "Videos require tap"}
-            </Text>
-          </View>
-          <Switch
-            value={autoplayEnabled}
-            onValueChange={toggleAutoplay}
-            thumbColor={autoplayEnabled ? "#9b59b6" : "#888"}
-            trackColor={{ false: "#999", true: "#d6b3ff" }}
-          />
-        </View>
-      </View>
-
-      {/* About */}
-      <Text style={styles.section}>ABOUT</Text>
-      <View style={styles.card}>
-        <TouchableOpacity style={styles.row}>
-          <Feather name="info" size={22} color="#3498db" />
-          <View style={styles.textWrapper}>
-            <Text style={styles.title}>Version</Text>
-            <Text style={styles.sub}>1.0.0</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() =>
-            Alert.alert(
-              "Privacy Policy",
-              "Taggy is committed to protecting your privacy. This Privacy Policy explains how we handle your data, and we've made it easy to understand.",
-              [
-                { text: "Close", style: "cancel" },
-                {
-                  text: "Read More",
-                  onPress: () => router.push("/PrivacyPolicy"),
-                },
-              ]
-            )
+      {
+        text: "Yes",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await AsyncStorage.multiRemove(["user_tags", "bookmark_tag_map"]);
+            DeviceEventEmitter.emit("globalTagsCleared");
+            eventBus.emit("refreshFeed");
+            Alert.alert("Success", "All created tags are cleared.");
+          } catch (error) {
+            console.error("Failed to clear global tags:", error);
+            Alert.alert("Error", "Failed to clear created tags.");
           }
-        >
-          <Feather name="shield" size={22} color="#27ae60" />
-          <View style={styles.textWrapper}>
-            <Text style={styles.title}>Privacy Policy</Text>
-            <Text style={styles.sub}>Read our terms and policies</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
+        },
+      },
+    ]);
+  };
 
-      {/* Privacy & Security */}
-      <Text style={styles.section}>PRIVACY & SECURITY</Text>
-      <View style={styles.card}>
-        <TouchableOpacity style={styles.row} onPress={handleLogout}>
-          <Feather name="log-out" size={22} color="#e74c3c" />
-          <View style={styles.textWrapper}>
-            <Text style={styles.title}>Logout</Text>
-            <Text style={styles.sub}>Clear session and return to login</Text>
+  const showThemeSelector = () => {
+    Alert.alert(
+      "Select Theme",
+      "Choose your preferred appearance mode:",
+      [
+        {
+          text: "Light",
+          onPress: () => setThemeMode("light"),
+        },
+        {
+          text: "Dark",
+          onPress: () => setThemeMode("dark"),
+        },
+        {
+          text: "Default (System)",
+          onPress: () => setThemeMode("default"),
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handleExportBookmarks = async () => {
+    try {
+      const savedPostsRaw = await AsyncStorage.getItem("reddit_saved_posts");
+      const userTagsRaw = await AsyncStorage.getItem("user_tags"); // Only if this key actually exists
+
+      const exportData = {
+        reddit_saved_posts: JSON.parse(savedPostsRaw || "[]"),
+        user_tags: JSON.parse(userTagsRaw || "{}"),
+      };
+
+      const jsonString = JSON.stringify(exportData, null, 2);
+      const fileUri = `${FileSystem.cacheDirectory}taggy-export.json`;
+
+      await FileSystem.writeAsStringAsync(fileUri, jsonString, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      const shared = await Sharing.shareAsync(fileUri);
+
+      if (shared) {
+        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      }
+    } catch (error) {
+      console.error("Export failed:", error);
+      Alert.alert("Error", "Failed to export your saved posts.");
+    }
+  };
+
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Preferences */}
+        <Text style={styles.section}>PREFERENCES</Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push("/ConnectSocialMedia")}
+          >
+            <MaterialIcons name="link" size={22} color="#3573D1" />
+            <View style={styles.textWrapper}>
+              <Text style={styles.title}>Connected Accounts</Text>
+              <Text style={styles.sub}>Manage Reddit connection</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.row} onPress={handleClearTags}>
+            <Feather name="tag" size={22} color="#E67E22" />
+            <View style={styles.textWrapper}>
+              <Text style={styles.title}>Clear All Tags</Text>
+              <Text style={styles.sub}>Remove all saved manual tags</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.row} onPress={showThemeSelector}>
+            <Feather name="moon" size={22} color="#8e44ad" />
+            <View style={[styles.textWrapper, { flex: 1 }]}>
+              <Text style={styles.title}>Theme</Text>
+              <Text style={styles.sub}>
+                {mode === "default"
+                  ? "System Default"
+                  : mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Media */}
+        <Text style={styles.section}>MEDIA</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Feather name="video" size={22} color="#9b59b6" />
+            <View style={[styles.textWrapper, { flex: 1 }]}>
+              <Text style={styles.title}>Autoplay Videos</Text>
+              <Text style={styles.sub}>
+                {autoplayEnabled
+                  ? "Videos play automatically"
+                  : "Videos require tap"}
+              </Text>
+            </View>
+            <Switch
+              value={autoplayEnabled}
+              onValueChange={toggleAutoplay}
+              thumbColor={autoplayEnabled ? "#9b59b6" : "#888"}
+              trackColor={{ false: "#999", true: "#d6b3ff" }}
+            />
           </View>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  </SafeAreaView>
-);
+        </View>
+
+        {/* export settings */}
+        <Text style={styles.section}>EXPORT</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.row} onPress={handleExportBookmarks}>
+            <Feather name="upload" size={22} color="#2ecc71" />
+            <View style={styles.textWrapper}>
+              <Text style={styles.title}>Export Reddit Saved Posts</Text>
+              <Text style={styles.sub}>Download all saved bookmarks & tags</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* About */}
+        <Text style={styles.section}>ABOUT</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.row}>
+            <Feather name="info" size={22} color="#3498db" />
+            <View style={styles.textWrapper}>
+              <Text style={styles.title}>Version</Text>
+              <Text style={styles.sub}>1.0.0</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() =>
+              Alert.alert(
+                "Privacy Policy",
+                "Taggy is committed to protecting your privacy. This Privacy Policy explains how we handle your data, and we've made it easy to understand.",
+                [
+                  { text: "Close", style: "cancel" },
+                  {
+                    text: "Read More",
+                    onPress: () => router.push("/PrivacyPolicy"),
+                  },
+                ]
+              )
+            }
+          >
+            <Feather name="shield" size={22} color="#27ae60" />
+            <View style={styles.textWrapper}>
+              <Text style={styles.title}>Privacy Policy</Text>
+              <Text style={styles.sub}>Read our terms and policies</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Privacy & Security */}
+        <Text style={styles.section}>PRIVACY & SECURITY</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.row} onPress={handleLogout}>
+            <Feather name="log-out" size={22} color="#e74c3c" />
+            <View style={styles.textWrapper}>
+              <Text style={styles.title}>Logout</Text>
+              <Text style={styles.sub}>Clear session and return to login</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
 };
 
 export default SettingsScreen;

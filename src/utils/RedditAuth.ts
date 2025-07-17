@@ -11,7 +11,7 @@ console.log([AUTHORIZATION_ENDPOINT, TOKEN_ENDPOINT, REDDIT_CLIENT_ID]);
 
 // const REDIRECT_URI = "taggy://redirect"
 const REDIRECT_URI = AuthSession.makeRedirectUri({
-  useProxy: true,
+  useProxy: false,
 });
 
 console.log("REDIRECT URI:", REDIRECT_URI);

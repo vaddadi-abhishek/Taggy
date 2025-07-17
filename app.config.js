@@ -32,6 +32,11 @@ export default {
           category: ["BROWSABLE", "DEFAULT"],
         },
       ],
+      permissions: [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "MEDIA_LIBRARY"
+      ]
     },
     web: {
       bundler: 'metro',
