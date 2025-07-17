@@ -14,6 +14,8 @@ import { useTheme } from "@/src/context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSearch } from "@/src/context/SearchContext";
 import { FlashList, ViewToken } from "@shopify/flash-list";
+import { getTagsForBookmark } from "@/src/utils/tagStorage";
+import eventBus from "@/src/utils/eventBus";
 
 const AnimatedBookmarkItem = ({
   item,
@@ -77,34 +79,6 @@ export default function HomeScreen() {
 
   const { searchQuery, searchFilter } = useSearch();
 
-  const loadSavedFromStorage = async () => {
-    try {
-      const data = await AsyncStorage.getItem("reddit_saved_posts");
-      if (data) {
-        const parsed = JSON.parse(data);
-        setBookmarks(parsed);
-      } else {
-        setBookmarks([]);
-      }
-    } catch (err) {
-      console.error("Error loading saved posts from AsyncStorage", err);
-    }
-  };
-
-  useEffect(() => {
-    AsyncStorage.getItem("autoplay_videos").then((value) => {
-      if (value !== null) setAutoplay(value === "true");
-    });
-
-    loadSavedFromStorage();
-  }, []);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadSavedFromStorage();
-    setRefreshing(false);
-  };
-
   const normalize = (text: string) =>
     (text || "").toLowerCase().replace(/[^a-z0-9 ]/gi, "");
 
@@ -124,6 +98,57 @@ export default function HomeScreen() {
       allTags.some((tag) => tag.includes(q))
     );
   });
+
+  const hydrateTags = async (items: any[]) => {
+    return await Promise.all(
+      items.map(async (item) => {
+        const localTags = await getTagsForBookmark(item.title);
+        return {
+          ...item,
+          localTags,
+        };
+      })
+    );
+  };
+
+  const loadSavedFromStorage = async () => {
+    try {
+      const data = await AsyncStorage.getItem("reddit_saved_posts");
+      if (data) {
+        const parsed = JSON.parse(data);
+        const hydrated = await hydrateTags(parsed);
+        setBookmarks(hydrated);
+      } else {
+        setBookmarks([]);
+      }
+    } catch (err) {
+      console.error("Error loading saved posts from AsyncStorage", err);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadSavedFromStorage();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    AsyncStorage.getItem("autoplay_videos").then((value) => {
+      if (value !== null) setAutoplay(value === "true");
+    });
+
+    loadSavedFromStorage();
+
+    const refreshListener = () => {
+      loadSavedFromStorage();
+    };
+
+    eventBus.on("refreshFeed", refreshListener);
+
+    return () => {
+      eventBus.off("refreshFeed", refreshListener);
+    };
+  }, []);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
