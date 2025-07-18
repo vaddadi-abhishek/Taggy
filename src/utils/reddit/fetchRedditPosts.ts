@@ -13,7 +13,6 @@ const fetchUsername = async (token: string): Promise<string> => {
   });
 
   if (!res.ok) throw new Error("Failed to fetch Reddit user");
-
   const data = await res.json();
   return data.name;
 };
@@ -21,8 +20,7 @@ const fetchUsername = async (token: string): Promise<string> => {
 const readSavedPosts = async (): Promise<any[]> => {
   try {
     const raw = await AsyncStorage.getItem(SAVED_POSTS_KEY);
-    const posts = raw ? JSON.parse(raw) : [];
-    return posts;
+    return raw ? JSON.parse(raw) : [];
   } catch (err) {
     console.error("❌ Failed to read from AsyncStorage:", err);
     return [];
@@ -37,18 +35,44 @@ const mergePosts = (existing: any[], incoming: any[]): any[] => {
   const existingIds = new Set(existing.map((p) => p.id));
   const newPosts = incoming.filter((p) => !existingIds.has(p.id));
 
-  // Add savedAt only to new posts
   newPosts.forEach((p) => {
     if (!p.savedAt) p.savedAt = Date.now();
   });
 
-  // Add new ones on top
-  return [...newPosts, ...existing];
+  return [...newPosts, ...existing]; // new at top
+};
+
+const fetchAllSavedPosts = async (username: string, token: string): Promise<any[]> => {
+  let all: any[] = [];
+  let after: string | null = null;
+
+  while (true) {
+    const url = `https://oauth.reddit.com/user/${username}/saved?limit=100${after ? `&after=${after}` : ""}`;
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "User-Agent": "taggy-app/1.0 (by u/South_Pencil)",
+      },
+    });
+
+    if (!res.ok) break;
+
+    const json = await res.json();
+    const children = json?.data?.children || [];
+
+    console.log("📦 Total fetched in this batch:", children.length, "AFTER =", json?.data?.after);
+
+    all.push(...children);
+    after = json?.data?.after;
+    if (!after) break;
+  }
+
+  return parseRedditPosts(all);
 };
 
 const fetchRedditPosts = async (
-  after: string | null = null,
-  existingUsername: string | null = null
+  tokenOverride: string | null = null,
+  afterOverride: string | null = null
 ): Promise<{
   posts: any[];
   after: string | null;
@@ -56,10 +80,9 @@ const fetchRedditPosts = async (
   error?: string;
 }> => {
   try {
-    const accessToken = await getValidAccessToken();
+    const accessToken = tokenOverride || await getValidAccessToken();
 
     if (!accessToken) {
-      console.warn("❗ No valid Reddit access token.");
       return {
         posts: [],
         after: null,
@@ -68,52 +91,55 @@ const fetchRedditPosts = async (
       };
     }
 
-    let username = existingUsername;
-    if (!username) {
-      username = await fetchUsername(accessToken);
-    }
+    const username = await fetchUsername(accessToken);
+    const existingPosts = await readSavedPosts();
 
-    const url = `https://oauth.reddit.com/user/${username}/saved?limit=100${after ? `&after=${after}` : ""}`;
+    let allNewPosts: any[] = [];
+    let after: string | null = afterOverride;
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "User-Agent": "taggy-app/1.0 (by u/South_Pencil)",
-      },
-    });
+    if (existingPosts.length === 0) {
+      console.log("📥 First login — fetching all saved Reddit posts...");
+      allNewPosts = await fetchAllSavedPosts(username, accessToken);
+    } else {
+      const url = `https://oauth.reddit.com/user/${username}/saved?limit=100${after ? `&after=${after}` : ""}`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "User-Agent": "taggy-app/1.0 (by u/South_Pencil)",
+        },
+      });
 
-    if (!response.ok) {
-      const errData = await response.json();
-      console.error("❌ Reddit API error:", errData);
+      if (!response.ok) {
+        const errData = await response.json();
+        console.error("❌ Reddit API error:", errData);
 
-      if (response.status === 401) {
-        await AsyncStorage.multiRemove([
-          "reddit_token",
-          "reddit_refresh_token",
-          "reddit_token_expiry",
-        ]);
-        console.warn("🔓 Token expired. Cleared stored Reddit tokens.");
+        if (response.status === 401) {
+          await AsyncStorage.multiRemove([
+            "reddit_token",
+            "reddit_refresh_token",
+            "reddit_token_expiry",
+          ]);
+        }
+
+        return {
+          posts: [],
+          after: null,
+          username,
+          error: "Failed to fetch Reddit saved posts.",
+        };
       }
 
-      return {
-        posts: [],
-        after: null,
-        username,
-        error: "Failed to fetch Reddit saved posts.",
-      };
+      const json = await response.json();
+      allNewPosts = parseRedditPosts(json?.data?.children || []);
+      after = json?.data?.after || null;
     }
 
-    const json = await response.json();
-    const rawPosts = json.data.children || [];
-    const afterToken = json.data.after || null;
-    const newPosts = parseRedditPosts(rawPosts);
-    const existingPosts = await readSavedPosts();
-    const mergedPosts = mergePosts(existingPosts, newPosts);
+    const mergedPosts = mergePosts(existingPosts, allNewPosts);
     await writeSavedPosts(mergedPosts);
 
     return {
       posts: mergedPosts,
-      after: afterToken,
+      after,
       username,
     };
   } catch (error) {
@@ -121,7 +147,7 @@ const fetchRedditPosts = async (
     return {
       posts: [],
       after: null,
-      username: existingUsername,
+      username: null,
       error: "Could not fetch Reddit data.",
     };
   }

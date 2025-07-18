@@ -37,9 +37,9 @@ const parseRedditPosts = (items: any[]): any[] => {
       : post.link_permalink || post.link_url || null;
 
     // DEBUG: Print unique IDs and created_utc for sorting/debugging
-    console.log(
-      `[${index}] ID: ${post.name}, created_utc: ${post.created_utc}, title: ${post.title || post.link_title}`
-    );
+    // console.log(
+    //   `[${index}] ID: ${post.name}, created_utc: ${post.created_utc}, title: ${post.title || post.link_title}`
+    // );
 
     if (kind === "t1") {
       return {
