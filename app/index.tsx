@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Easing,
   Image,
   StyleSheet,
   Text,
@@ -14,8 +15,10 @@ import { router } from 'expo-router';
 import handleSocialConnect from '@/src/utils/socialAuthDispatcher';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const ICON_SIZE = 40;
+const SPEED = 1.2;
 
-const shuffleArray = (arr: string[]) => {
+const shuffleArray = (arr: any[]) => {
   const shuffled = [...arr];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -24,56 +27,77 @@ const shuffleArray = (arr: string[]) => {
   return shuffled;
 };
 
+const getFixedVelocity = (index: number) => {
+  const direction = index % 4;
+  switch (direction) {
+    case 0: return { vx: SPEED, vy: SPEED };
+    case 1: return { vx: -SPEED, vy: SPEED };
+    case 2: return { vx: SPEED, vy: -SPEED };
+    case 3: return { vx: -SPEED, vy: -SPEED };
+    default: return { vx: SPEED, vy: SPEED };
+  }
+};
+
 export default function IndexScreen() {
   const [loading, setLoading] = useState(true);
+  const [assetsReady, setAssetsReady] = useState(false);
+  const [animationReady, setAnimationReady] = useState(false);
+  const animationFrameId = useRef<number>();
+
   const [randomLogos] = useState(() =>
     shuffleArray([
-      'https://img.icons8.com/?size=100&id=gxDo9YXCsacn&format=png&color=000000',
-      'https://img.icons8.com/?size=100&id=oaaSr6h7kwm6&format=png&color=000000',
-      'https://img.icons8.com/?size=100&id=3fxG1r3aX8Qo&format=png&color=000000',
-      'https://img.icons8.com/?size=100&id=h0Wy3Nu7mqbq&format=png&color=000000',
-      'https://img.icons8.com/?size=100&id=d6lKoTbA1g1G&format=png&color=000000',
-      'https://img.icons8.com/?size=100&id=5twNojKL5zU7&format=png&color=000000',
-      'https://img.icons8.com/?size=100&id=3psXjDzSpADv&format=png&color=000000',
-      'https://img.icons8.com/?size=100&id=qLVB1tIe9Ts9&format=png&color=000000',
+      require('@/assets/icons/reddit.png'),
+      require('@/assets/icons/x.png'),
+      require('@/assets/icons/bookmark.png'),
+      require('@/assets/icons/tag.png'),
     ])
   );
 
-  const floatAnims = useRef(randomLogos.map(() => new Animated.Value(0))).current;
-  const [positions, setPositions] = useState(() => {
-    const slotWidth = SCREEN_WIDTH / randomLogos.length;
-    const slots = Array.from({ length: randomLogos.length }, (_, i) => i * slotWidth + slotWidth / 4);
-    const shuffledSlots = shuffleArray(slots);
+  const positions = useRef(
+    randomLogos.map((_, index) => {
+      const { vx, vy } = getFixedVelocity(index);
+      return {
+        x: new Animated.Value(Math.random() * (SCREEN_WIDTH - ICON_SIZE)),
+        y: new Animated.Value(Math.random() * (SCREEN_HEIGHT - ICON_SIZE)),
+        vx,
+        vy,
+        rotation: new Animated.Value(0),
+        rotationAngle: 0,
+      };
+    })
+  ).current;
 
-    return randomLogos.map((_, i) => ({
-      left: shuffledSlots[i],
-      delay: Math.random() * 3000,
-      duration: 8000 + Math.random() * 4000,
-    }));
-  });
+  // ✅ Fix: Use Image.resolveAssetSource instead of Image.getSize
+  useEffect(() => {
+    if (assetsReady) return;
 
-  const animateLogo = (i: number, newDuration?: number, newDelay?: number) => {
-    floatAnims[i].setValue(0);
-    Animated.timing(floatAnims[i], {
-      toValue: 1,
-      duration: newDuration ?? positions[i].duration,
-      delay: newDelay ?? positions[i].delay,
-      useNativeDriver: true,
-    }).start(() => animateLogo(i)); // loop
-  };
+    let isMounted = true;
 
-  const randomizeSingleLogo = (i: number) => {
-    const newDuration = 6000 + Math.random() * 5000;
-    const newDelay = Math.random() * 1000;
-    const updatedPositions = [...positions];
-    updatedPositions[i] = {
-      ...updatedPositions[i],
-      duration: newDuration,
-      delay: newDelay,
+    const loadImages = async () => {
+      await Promise.all(
+        randomLogos.map(
+          (asset) =>
+            new Promise((resolve) => {
+              try {
+                Image.resolveAssetSource(asset);
+                resolve(true);
+              } catch (error) {
+                console.warn('❌ Failed to resolve asset:', asset, error);
+                resolve(true);
+              }
+            })
+        )
+      );
+
+      if (isMounted) setAssetsReady(true);
     };
-    setPositions(updatedPositions);
-    animateLogo(i, newDuration, newDelay); // re-animate with new config
-  };
+
+    loadImages();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [randomLogos, assetsReady]);
 
   useEffect(() => {
     const checkToken = async () => {
@@ -88,8 +112,77 @@ export default function IndexScreen() {
   }, []);
 
   useEffect(() => {
-    positions.forEach((_, i) => animateLogo(i));
-  }, []);
+    if (!assetsReady) return;
+    const timer = setTimeout(() => {
+      setAnimationReady(true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [assetsReady]);
+
+  useEffect(() => {
+    if (!animationReady) return;
+
+    const animate = () => {
+      positions.forEach((logo, i) => {
+        let newX = logo.x.__getValue() + logo.vx;
+        let newY = logo.y.__getValue() + logo.vy;
+
+        if (newX < 0 || newX > SCREEN_WIDTH - ICON_SIZE) {
+          logo.vx *= -1;
+          rotateLogo(i, 30);
+        }
+        if (newY < 0 || newY > SCREEN_HEIGHT - ICON_SIZE) {
+          logo.vy *= -1;
+          rotateLogo(i, 30);
+        }
+
+        for (let j = 0; j < positions.length; j++) {
+          if (i !== j) {
+            const dx = newX - positions[j].x.__getValue();
+            const dy = newY - positions[j].y.__getValue();
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < ICON_SIZE) {
+              const angle = Math.atan2(dy, dx);
+              const force = 0.4;
+              logo.vx += Math.cos(angle) * force;
+              logo.vy += Math.sin(angle) * force;
+              positions[j].vx -= Math.cos(angle) * force;
+              positions[j].vy -= Math.sin(angle) * force;
+
+              rotateLogo(i, 45);
+              rotateLogo(j, -45);
+            }
+          }
+        }
+
+        logo.x.setValue(newX);
+        logo.y.setValue(newY);
+      });
+
+      animationFrameId.current = requestAnimationFrame(animate);
+    };
+
+    const rotateLogo = (i: number, amount: number) => {
+      const logo = positions[i];
+      logo.rotationAngle = (logo.rotationAngle + amount) % 360;
+
+      Animated.timing(logo.rotation, {
+        toValue: logo.rotationAngle,
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    };
+
+    animate();
+
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+    };
+  }, [positions, animationReady]);
 
   const startRedditLogin = async () => {
     const connected = await handleSocialConnect('reddit', true);
@@ -102,29 +195,28 @@ export default function IndexScreen() {
 
   const renderFloatingLogos = () =>
     randomLogos.map((uri, i) => {
-      const translateY = floatAnims[i].interpolate({
-        inputRange: [0, 1],
-        outputRange: [SCREEN_HEIGHT + 50, -60],
+      const rotate = positions[i].rotation.interpolate({
+        inputRange: [0, 360],
+        outputRange: ['0deg', '360deg'],
       });
 
       return (
-        <TouchableOpacity
+        <Animated.View
           key={i}
-          onPress={() => randomizeSingleLogo(i)}
-          activeOpacity={0.8}
-          style={[styles.floatingTouchable, { left: positions[i].left }]}
+          style={[
+            styles.floatingTouchable,
+            {
+              transform: [
+                { translateX: positions[i].x },
+                { translateY: positions[i].y },
+                { rotate },
+              ],
+              opacity: animationReady ? 1 : 0,
+            },
+          ]}
         >
-          <Animated.Image
-            source={{ uri }}
-            style={[
-              styles.floatingIcon,
-              {
-                transform: [{ translateY }],
-                opacity: 0.5,
-              },
-            ]}
-          />
-        </TouchableOpacity>
+          <Image source={uri} style={styles.floatingIcon} />
+        </Animated.View>
       );
     });
 
@@ -138,7 +230,14 @@ export default function IndexScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={StyleSheet.absoluteFill}>{renderFloatingLogos()}</View>
+      <View style={StyleSheet.absoluteFill}>
+        {renderFloatingLogos()}
+        {!animationReady && (
+          <View style={[StyleSheet.absoluteFill, styles.center]}>
+            <ActivityIndicator size="small" color="#3573D1" />
+          </View>
+        )}
+      </View>
 
       <View style={styles.viewText}>
         <Text style={styles.welcomeText}>Let's</Text>
@@ -166,6 +265,7 @@ export default function IndexScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'white',
   },
   viewText: {
     flex: 1,
@@ -209,13 +309,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'white',
   },
   floatingIcon: {
-    width: 40,
-    height: 40,
+    width: ICON_SIZE,
+    height: ICON_SIZE,
     resizeMode: 'contain',
+    opacity: 0.5,
   },
   floatingTouchable: {
     position: 'absolute',
+    left: 0,
+    top: 0,
   },
 });
