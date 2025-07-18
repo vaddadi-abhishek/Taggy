@@ -49,7 +49,7 @@ const SettingsScreen = () => {
         style: "destructive",
         onPress: async () => {
           try {
-            await AsyncStorage.multiRemove(["reddit_token"]);
+            await AsyncStorage.clear();
             router.replace("/");
           } catch (err) {
             console.error("Logout failed:", err);

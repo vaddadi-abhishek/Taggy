@@ -21,8 +21,10 @@ const fetchUsername = async (token: string): Promise<string> => {
 const readSavedPosts = async (): Promise<any[]> => {
   try {
     const raw = await AsyncStorage.getItem(SAVED_POSTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
+    const posts = raw ? JSON.parse(raw) : [];
+    return posts;
+  } catch (err) {
+    console.error("❌ Failed to read from AsyncStorage:", err);
     return [];
   }
 };
@@ -33,7 +35,15 @@ const writeSavedPosts = async (posts: any[]) => {
 
 const mergePosts = (existing: any[], incoming: any[]): any[] => {
   const existingIds = new Set(existing.map((p) => p.id));
-  return [...existing, ...incoming.filter((p) => !existingIds.has(p.id))];
+  const newPosts = incoming.filter((p) => !existingIds.has(p.id));
+
+  // Add savedAt only to new posts
+  newPosts.forEach((p) => {
+    if (!p.savedAt) p.savedAt = Date.now();
+  });
+
+  // Add new ones on top
+  return [...newPosts, ...existing];
 };
 
 const fetchRedditPosts = async (
@@ -49,6 +59,7 @@ const fetchRedditPosts = async (
     const accessToken = await getValidAccessToken();
 
     if (!accessToken) {
+      console.warn("❗ No valid Reddit access token.");
       return {
         posts: [],
         after: null,
@@ -62,9 +73,7 @@ const fetchRedditPosts = async (
       username = await fetchUsername(accessToken);
     }
 
-    const url = `https://oauth.reddit.com/user/${username}/saved?limit=100${
-      after ? `&after=${after}` : ""
-    }`;
+    const url = `https://oauth.reddit.com/user/${username}/saved?limit=100${after ? `&after=${after}` : ""}`;
 
     const response = await fetch(url, {
       headers: {
@@ -75,7 +84,7 @@ const fetchRedditPosts = async (
 
     if (!response.ok) {
       const errData = await response.json();
-      console.error("Reddit API error:", errData);
+      console.error("❌ Reddit API error:", errData);
 
       if (response.status === 401) {
         await AsyncStorage.multiRemove([
@@ -83,6 +92,7 @@ const fetchRedditPosts = async (
           "reddit_refresh_token",
           "reddit_token_expiry",
         ]);
+        console.warn("🔓 Token expired. Cleared stored Reddit tokens.");
       }
 
       return {
@@ -94,15 +104,16 @@ const fetchRedditPosts = async (
     }
 
     const json = await response.json();
-    const newPosts = parseRedditPosts(json.data.children);
-
+    const rawPosts = json.data.children || [];
+    const afterToken = json.data.after || null;
+    const newPosts = parseRedditPosts(rawPosts);
     const existingPosts = await readSavedPosts();
     const mergedPosts = mergePosts(existingPosts, newPosts);
     await writeSavedPosts(mergedPosts);
 
     return {
       posts: mergedPosts,
-      after: json.data.after,
+      after: afterToken,
       username,
     };
   } catch (error) {

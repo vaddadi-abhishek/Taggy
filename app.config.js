@@ -62,6 +62,9 @@ export default {
       AUTHORIZATION_ENDPOINT: process.env.AUTHORIZATION_ENDPOINT,
       TOKEN_ENDPOINT: process.env.TOKEN_ENDPOINT,
       REDDIT_CLIENT_ID: process.env.REDDIT_CLIENT_ID,
+      X_CLIENT_ID: process.env.X_CLIENT_ID,
+      X_AUTHORIZATION_ENDPOINT: process.env.X_AUTHORIZATION_ENDPOINT,
+      X_TOKEN_ENDPOINT: process.env.X_TOKEN_ENDPOINT,
       "eas": {
         "projectId": "613b6096-e5c2-4e51-82c1-af485ab6848a"
       },

@@ -16,6 +16,7 @@ import { useSearch } from "@/src/context/SearchContext";
 import { FlashList, ViewToken } from "@shopify/flash-list";
 import { getTagsForBookmark } from "@/src/utils/tagStorage";
 import eventBus from "@/src/utils/eventBus";
+import fetchRedditPosts from "@/src/utils/reddit/fetchRedditPosts";
 
 const AnimatedBookmarkItem = ({
   item,
@@ -128,19 +129,53 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadSavedFromStorage();
+    try {
+      console.log("🔄 Refreshing: fetching from Reddit...");
+
+      const { posts, error } = await fetchRedditPosts(); // ⬅️ this fetches + merges + writes
+
+      if (error) {
+        console.warn("⚠️ Reddit fetch error:", error);
+      } else {
+        console.log("✅ New posts fetched:", posts.length);
+      }
+
+      await loadSavedFromStorage(); // ⬅️ then update local UI from AsyncStorage
+    } catch (err) {
+      console.error("❌ Failed to refresh:", err);
+    }
     setRefreshing(false);
   };
 
+
   useEffect(() => {
-    AsyncStorage.getItem("autoplay_videos").then((value) => {
-      if (value !== null) setAutoplay(value === "true");
-    });
+    const init = async () => {
+      try {
+        AsyncStorage.getItem("autoplay_videos").then((value) => {
+          if (value !== null) setAutoplay(value === "true");
+        });
 
-    loadSavedFromStorage();
+        console.log("🔁 Fetching saved posts from Reddit...");
+        const { posts, error } = await fetchRedditPosts();
 
-    const refreshListener = () => {
-      loadSavedFromStorage();
+        if (error) {
+          console.warn("⚠️ Error fetching posts from Reddit:", error);
+        } else {
+          console.log("✅ Reddit posts fetched:", posts.length);
+        }
+
+        await loadSavedFromStorage(); // update bookmarks from updated storage
+      } catch (e) {
+        console.error("❌ init error:", e);
+      }
+    };
+
+    init();
+
+    const refreshListener = async () => {
+      console.log("📡 EventBus: refreshFeed triggered");
+      await fetchRedditPosts();
+      await loadSavedFromStorage();
     };
 
     eventBus.on("refreshFeed", refreshListener);
@@ -149,6 +184,7 @@ export default function HomeScreen() {
       eventBus.off("refreshFeed", refreshListener);
     };
   }, []);
+
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {

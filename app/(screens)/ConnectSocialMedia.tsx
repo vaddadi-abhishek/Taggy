@@ -59,7 +59,11 @@ export default function ConnectSocialMedia() {
             onPress: async () => {
               const result = await handleSocialConnect(item.key, false);
               if (result) {
-                await AsyncStorage.removeItem(`${item.key}_token`);
+                await AsyncStorage.multiRemove([
+                  `${item.key}_token`,
+                  `${item.key}_saved_posts`, // just in case,
+                  `reddit_saved_posts`       // this is the key we care about
+                ]);
                 setConnected((prev) => ({ ...prev, [item.id]: false }));
                 eventBus.emit("refreshFeed");
               }
@@ -72,7 +76,7 @@ export default function ConnectSocialMedia() {
 
   const renderItem = ({ item }: { item: (typeof socialPlatforms)[0] }) => {
     const isConnected = connected[item.id];
-    const isSupported = ["reddit"].includes(item.key.toLowerCase());
+    const isSupported = ["reddit", "x"].includes(item.key.toLowerCase());
 
     return (
       <View

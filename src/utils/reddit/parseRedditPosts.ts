@@ -1,5 +1,5 @@
 const parseRedditPosts = (items: any[]): any[] => {
-  return items.map((item: any) => {
+  return items.map((item: any, index: number) => {
     const post = item.data;
     const kind = item.kind;
 
@@ -35,6 +35,11 @@ const parseRedditPosts = (items: any[]): any[] => {
     const permalink = post.permalink
       ? `https://www.reddit.com${post.permalink}`
       : post.link_permalink || post.link_url || null;
+
+    // DEBUG: Print unique IDs and created_utc for sorting/debugging
+    console.log(
+      `[${index}] ID: ${post.name}, created_utc: ${post.created_utc}, title: ${post.title || post.link_title}`
+    );
 
     if (kind === "t1") {
       return {
